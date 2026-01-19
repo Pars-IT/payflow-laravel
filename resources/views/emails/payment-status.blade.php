@@ -1,6 +1,8 @@
 <p>Hello {{ $name }}</p>
 
-<p>Your payment of {{ $payment->amount }} cents was <b>{{ $status }}</b>.</p>
+<p>
+    Your payment of €{{ number_format($payment->amount / 100, 2) }} was <b>{{ $status }}</b>.
+</p>
 
 @if($status === 'failed')
     <p>Reason: {{ $reason }}</p>

@@ -22,6 +22,8 @@ class Payment extends Model
         // The provider represents the external Payment Service Provider (PSP)
         'provider',
         'provider_payment_id',
+        'provider_checkout_url',
+        'failure_reason',
     ];
 
     public function user()

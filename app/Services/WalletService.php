@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Exceptions\WalletNotFoundException;
 use App\Models\Payment;
 use App\Models\Transaction;
 use App\Models\Wallet;
-use RuntimeException;
+use Illuminate\Support\Facades\DB;
 
 class WalletService
 {
@@ -14,22 +15,24 @@ class WalletService
      */
     public function creditFromPayment(Payment $payment): void
     {
-        $wallet = Wallet::where('user_id', $payment->user_id)
-            ->lockForUpdate()
-            ->first();
+        DB::transaction(function () use ($payment) {
+            $wallet = Wallet::where('user_id', $payment->user_id)
+                ->lockForUpdate()
+                ->first();
 
-        if (! $wallet) {
-            throw new RuntimeException('wallet_not_found');
-        }
+            if (! $wallet) {
+                throw new WalletNotFoundException;
+            }
 
-        $wallet->balance += $payment->amount;
-        $wallet->save();
+            $wallet->balance += $payment->amount;
+            $wallet->save();
 
-        Transaction::create([
-            'wallet_id' => $wallet->id,
-            'payment_id' => $payment->id,
-            'amount' => $payment->amount,
-            'type' => 'credit',
-        ]);
+            Transaction::create([
+                'wallet_id' => $wallet->id,
+                'payment_id' => $payment->id,
+                'amount' => $payment->amount,
+                'type' => 'credit',
+            ]);
+        });
     }
 }

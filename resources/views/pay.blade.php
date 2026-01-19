@@ -147,15 +147,29 @@ async function poll(paymentId) {
         const res = await fetch('/api/payments/' + paymentId);
         const payment = await res.json();
 
+        // Redirect if async gateway produced checkout url
+        if (payment.checkout_url) {
+            clearInterval(interval);
+            window.location.href = payment.checkout_url;
+            return;
+        }
+
+        // Update status
         statusEl.innerText = 'Status: ' + payment.status;
         statusEl.className = payment.status;
 
+        // Final state
         if (payment.status !== 'pending') {
             spinner.style.display = 'none';
             button.disabled = false;
             clearInterval(interval);
+
+            if (payment.status === 'failed') {
+                statusEl.innerText =
+                    'Failed: ' + (payment.failure_reason ?? 'unknown_error');
+            }
         }
-    }, 1500);
+    }, 1200);
 }
 
 /* -------- Submit -------- */
@@ -181,12 +195,18 @@ form.onsubmit = async e => {
 
     const data = await res.json();
 
-    if (data.redirect_url) {
-        window.location.href = data.redirect_url;
+    // Immediate failure (fail-fast)
+    if (data.status === 'failed') {
+        spinner.style.display = 'none';
+        button.disabled = false;
+
+        statusEl.innerText =
+            'Failed: ' + (data.failure_reason ?? 'unknown_error');
+        statusEl.className = 'failed';
         return;
     }
 
-    // fallback for sync gateways
+    // Always poll – sync or async
     poll(data.id);
 };
 </script>

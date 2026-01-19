@@ -10,9 +10,6 @@ class PaymentSucceeded
 {
     use Dispatchable, SerializesModels;
 
-    /**
-     * Create a new event instance.
-     */
     public function __construct(
         public Payment $payment
     ) {}

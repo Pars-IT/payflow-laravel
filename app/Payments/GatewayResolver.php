@@ -7,7 +7,6 @@ use App\Payments\Gateways\AbnAmroGateway;
 use App\Payments\Gateways\IdealGateway;
 use App\Payments\Gateways\IngGateway;
 use App\Payments\Gateways\MollieGateway;
-use App\Payments\Gateways\PaymentGatewayInterface;
 
 class GatewayResolver
 {

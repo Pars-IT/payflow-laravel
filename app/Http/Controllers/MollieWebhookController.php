@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Events\PaymentFailed;
-use App\Events\PaymentSucceeded;
+use App\Exceptions\WalletNotFoundException;
 use App\Models\Payment;
+use App\Services\PaymentFinalizer;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Mollie\Api\MollieApiClient;
 
@@ -15,10 +14,10 @@ class MollieWebhookController extends Controller
 {
     public function handle(Request $request)
     {
+        Log::info('Mollie webhook called', ['payload' => $request->all()]);
 
-        Log::info('Mollie Webhook called', ['payload' => $request->all()]);
         if (! $request->has('id')) {
-            return response()->json(['error' => 'Invalid webhook'], 400);
+            return response()->json(['error' => 'invalid_webhook'], 400);
         }
 
         $mollie = new MollieApiClient;
@@ -32,46 +31,34 @@ class MollieWebhookController extends Controller
             $molliePayment->id
         )->firstOrFail();
 
-        if (
-            (int) round($molliePayment->amount->value * 100) !== $payment->amount ||
-            $molliePayment->amount->currency !== $payment->currency
-        ) {
-            abort(400, 'Amount mismatch');
-        }
-
         // Idempotency: do not process finalized payments again
         if ($payment->status !== 'pending') {
             return response()->json(['ok' => true]);
         }
 
-        DB::transaction(function () use ($payment, $molliePayment) {
+        $finalizer = app(PaymentFinalizer::class);
 
-            if ($molliePayment->isPaid()) {
-                try {
-                    app(WalletService::class)->creditFromPayment($payment);
+        if ($molliePayment->isPaid()) {
+            try {
+                app(WalletService::class)->creditFromPayment($payment);
+                $finalizer->succeed($payment);
 
-                    $payment->status = 'success';
-                    $payment->save();
-
-                    event(new PaymentSucceeded($payment));
-                } catch (\RuntimeException $e) {
-                    $payment->status = 'failed';
-                    $payment->save();
-
-                    event(new PaymentFailed($payment, $e->getMessage()));
-                }
-            } else {
-                $payment->status = 'failed';
-                $payment->save();
-
-                event(new PaymentFailed(
-                    $payment,
-                    $molliePayment->status
-                ));
+            } catch (WalletNotFoundException $e) {
+                $finalizer->fail($payment, $e->getMessage());
             }
-        });
 
-        Log::info('Mollie Webhook processed successfully');
+        } else {
+            $reason = match ($molliePayment->status) {
+                'canceled' => 'psp_canceled_by_user',
+                'expired' => 'psp_expired',
+                'failed' => 'psp_failed',
+                default => 'psp_unknown',
+            };
+
+            $finalizer->fail($payment, $reason);
+        }
+
+        Log::info('Mollie webhook processed', ['payment_id' => $payment->id]);
 
         return response()->json(['ok' => true]);
     }

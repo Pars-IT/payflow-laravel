@@ -2,7 +2,10 @@
 
 namespace App\Payments\Gateways;
 
+use App\Exceptions\Payments\PspException;
 use App\Models\Payment;
+use App\Payments\GatewayResult;
+use App\Payments\PaymentGatewayInterface;
 
 class AbnAmroGateway implements PaymentGatewayInterface
 {
@@ -10,9 +13,9 @@ class AbnAmroGateway implements PaymentGatewayInterface
     {
         // Test: only even sums
         if ($payment->amount % 2 !== 0) {
-            return new GatewayResult(false, 'odd_amount_not_supported');
+            throw new PspException('abn_amro_rejected');
         }
 
-        return new GatewayResult(true);
+        return new GatewayResult;
     }
 }

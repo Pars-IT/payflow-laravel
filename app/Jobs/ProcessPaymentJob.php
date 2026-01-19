@@ -2,15 +2,15 @@
 
 namespace App\Jobs;
 
-use App\Events\PaymentFailed;
-use App\Events\PaymentSucceeded;
+use App\Exceptions\Payments\PspException;
+use App\Exceptions\WalletNotFoundException;
 use App\Models\Payment;
 use App\Payments\GatewayResolver;
+use App\Services\PaymentFinalizer;
 use App\Services\WalletService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
-use Illuminate\Support\Facades\DB;
 
 class ProcessPaymentJob implements ShouldQueue
 {
@@ -35,41 +35,25 @@ class ProcessPaymentJob implements ShouldQueue
 
         $resolver = new GatewayResolver;
         $gateway = $resolver->resolve($payment);
-
-        $result = $gateway->charge($payment);
-
-        if (! $result->success) {
-            $payment->status = 'failed';
-            $payment->save();
-
-            event(new PaymentFailed(
-                $payment,
-                $result->failureReason ?? 'unknown'
-            ));
-
-            return;
-        }
-
-        // ASYNC gateways (e.g. Mollie)
-        if ($result->async) {
-            return;
-        }
-
-        // SYNC SUCCESS
+        $finalizer = app(PaymentFinalizer::class);
         try {
-            DB::transaction(function () use ($payment) {
-                app(WalletService::class)->creditFromPayment($payment);
+            $result = $gateway->charge($payment);
 
-                $payment->status = 'success';
-                $payment->save();
-            });
+            // ASYNC gateways (e.g. Mollie)
+            if ($result->async === true) {
+                // async PSPs are finalized via webhook
+                return;
+            }
 
-            event(new PaymentSucceeded($payment));
-        } catch (\RuntimeException $e) {
-            $payment->status = 'failed';
-            $payment->save();
+            // SYNC gateways
+            app(WalletService::class)->creditFromPayment($payment);
 
-            event(new PaymentFailed($payment, $e->getMessage()));
+            $finalizer->succeed($payment);
+
+        } catch (PspException $e) {
+            $finalizer->fail($payment, $e->reason());
+        } catch (WalletNotFoundException $e) {
+            $finalizer->fail($payment, 'wallet_not_found');
         }
     }
 }

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Payments\Gateways;
+namespace App\Payments;
 
 use App\Models\Payment;
 

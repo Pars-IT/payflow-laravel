@@ -96,6 +96,7 @@
             Gateway:
             <select id="gateway">
                 <option value="ideal">iDEAL</option>
+                <option value="mollie">Mollie</option>
                 <option value="ing">ING</option>
                 <option value="abn-amro">ABN AMRO</option>
             </select>
@@ -132,7 +133,7 @@ toggleBtn.onclick = () => {
 
 const hour = new Date().getHours();
 
-if (hour >= 18 || hour < 8) {
+if (hour >= 17 || hour < 8) {
     body.classList.add('dark');
     toggleBtn.innerText = '☀️ Light mode';
 } else {
@@ -178,8 +179,15 @@ form.onsubmit = async e => {
         })
     });
 
-    const payment = await res.json();
-    poll(payment.id);
+    const data = await res.json();
+
+    if (data.redirect_url) {
+        window.location.href = data.redirect_url;
+        return;
+    }
+
+    // fallback for sync gateways
+    poll(data.id);
 };
 </script>
 

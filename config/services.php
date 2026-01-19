@@ -35,9 +35,9 @@ return [
         ],
     ],
 
-    'webhook' => [
-        'url' => env('WEBHOOK_URL'),
-        'secret' => env('WEBHOOK_SECRET'),
+    'mollie' => [
+        'key' => env('MOLLIE_API_KEY'),
+        'webhook_secret' => env('MOLLIE_WEBHOOK_SECRET'),
     ],
 
 ];

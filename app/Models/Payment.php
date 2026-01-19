@@ -11,12 +11,16 @@ class Payment extends Model
 
     protected $fillable = [
         'id',
+        // The gateway represents the logical payment method,
         'gateway',
         'user_id',
         'amount',
         'currency',
         'status',
         'idempotency_key',
+        // The provider represents the external Payment Service Provider (PSP)
+        'provider',
+        'provider_payment_id',
     ];
 
     public function user()

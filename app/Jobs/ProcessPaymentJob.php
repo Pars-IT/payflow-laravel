@@ -5,9 +5,8 @@ namespace App\Jobs;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;
-use App\Models\Wallet;
-use App\Models\Transaction;
 use App\Payments\GatewayResolver;
+use App\Services\WalletService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -39,38 +38,36 @@ class ProcessPaymentJob implements ShouldQueue
         $result = $gateway->charge($payment);
 
         if (! $result->success) {
-            event(new PaymentFailed($payment, $result->failureReason ?? 'unknown'));
+            $payment->status = 'failed';
+            $payment->save();
+
+            event(new PaymentFailed(
+                $payment,
+                $result->failureReason ?? 'unknown'
+            ));
             return;
         }
 
+        // ASYNC gateways (e.g. Mollie)
+        if ($result->async) {
+            return;
+        }
 
-        /**
-         * Process money (ledger)
-         */
-        DB::transaction(function () use ($payment) {
+        // SYNC SUCCESS
+        try {
+            DB::transaction(function () use ($payment) {
+                app(WalletService::class)->creditFromPayment($payment);
 
-            $wallet = Wallet::where('user_id', $payment->user_id)
-                ->lockForUpdate()
-                ->first();
+                $payment->status = 'success';
+                $payment->save();
+            });
 
-            if (! $wallet) {
-                event(new PaymentFailed($payment, 'wallet_not_found'));
-                return;
-            }
+            event(new PaymentSucceeded($payment));
+        } catch (\RuntimeException $e) {
+            $payment->status = 'failed';
+            $payment->save();
 
-            // update balance
-            $wallet->balance += $payment->amount;
-            $wallet->save();
-
-            // ledger entry
-            Transaction::create([
-                'wallet_id'  => $wallet->id,
-                'payment_id' => $payment->id,
-                'amount'     => $payment->amount,
-                'type'       => 'credit',
-            ]);
-        });
-
-        event(new PaymentSucceeded($payment));
+            event(new PaymentFailed($payment, $e->getMessage()));
+        }
     }
 }

@@ -1,10 +1,11 @@
 <?php
 
+use App\Http\Controllers\MollieWebhookController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PaymentController;
-use App\Http\Controllers\WebhookController;
 
 Route::post('/payments', [PaymentController::class, 'store']);
 Route::get('/payments/{id}', [PaymentController::class, 'show']);
 
-Route::post('/webhooks/payments', [WebhookController::class, 'handle']);
+Route::post('/webhooks/mollie', [MollieWebhookController::class, 'handle'])
+    ->name('webhooks.mollie');

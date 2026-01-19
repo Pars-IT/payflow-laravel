@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Payment;
 use App\Jobs\ProcessPaymentJob;
+use App\Payments\GatewayResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
+
     public function store(Request $request)
     {
         $request->validate([
@@ -32,6 +34,19 @@ class PaymentController extends Controller
             'idempotency_key' => $request->idempotency_key,
         ]);
 
+        $resolver = new GatewayResolver();
+        $gateway = $resolver->resolve($payment);
+        $result = $gateway->charge($payment);
+
+        // async gateway (Mollie)
+        if ($result->async && $result->checkoutUrl) {
+            return response()->json([
+                'payment_id' => $payment->id,
+                'redirect_url' => $result->checkoutUrl,
+            ], 201);
+        }
+
+        // sync gateways
         ProcessPaymentJob::dispatch($payment->id);
 
         return response()->json($payment, 201);

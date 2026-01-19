@@ -2,14 +2,14 @@
 
 namespace App\Listeners;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
 use App\Events\PaymentSucceeded;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Log;
 
 class LogPaymentListener implements ShouldQueue
 {
     public int $tries = 3;
+
     public int $backoff = 10;
 
     /**

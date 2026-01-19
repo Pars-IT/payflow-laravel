@@ -1,9 +1,9 @@
 <?php
 
+use App\Jobs\ReconcileWalletsJob;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
-use App\Jobs\ReconcileWalletsJob;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -11,4 +11,4 @@ Artisan::command('inspire', function () {
 
 Schedule::job(new ReconcileWalletsJob)
     ->hourly();
-    //->dailyAt('21:35');
+// ->dailyAt('21:35');

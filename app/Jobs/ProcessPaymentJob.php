@@ -17,6 +17,7 @@ class ProcessPaymentJob implements ShouldQueue
     use Dispatchable, Queueable;
 
     public int $tries = 3;
+
     public int $backoff = 10;
 
     public function __construct(
@@ -32,7 +33,7 @@ class ProcessPaymentJob implements ShouldQueue
             return;
         }
 
-        $resolver = new GatewayResolver();
+        $resolver = new GatewayResolver;
         $gateway = $resolver->resolve($payment);
 
         $result = $gateway->charge($payment);
@@ -45,6 +46,7 @@ class ProcessPaymentJob implements ShouldQueue
                 $payment,
                 $result->failureReason ?? 'unknown'
             ));
+
             return;
         }
 

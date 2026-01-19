@@ -2,8 +2,8 @@
 
 namespace App\Listeners;
 
-use App\Events\PaymentSucceeded;
 use App\Events\PaymentFailed;
+use App\Events\PaymentSucceeded;
 use App\Mail\PaymentStatusMail;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Support\Facades\Mail;
@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Mail;
 class SendPaymentEmailListener implements ShouldQueue
 {
     public int $tries = 3;
+
     public int $backoff = 10;
 
     /**

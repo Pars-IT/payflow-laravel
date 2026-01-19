@@ -2,13 +2,12 @@
 
 namespace App\Mail;
 
+use App\Models\Payment;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
-use App\Models\Payment;
 
 class PaymentStatusMail extends Mailable
 {
@@ -30,7 +29,7 @@ class PaymentStatusMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Payment ' . ucfirst($this->status),
+            subject: 'Payment '.ucfirst($this->status),
         );
     }
 

@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Payment;
-use App\Models\Wallet;
 use App\Models\Transaction;
+use App\Models\Wallet;
 use RuntimeException;
 
 class WalletService
@@ -26,10 +26,10 @@ class WalletService
         $wallet->save();
 
         Transaction::create([
-            'wallet_id'  => $wallet->id,
+            'wallet_id' => $wallet->id,
             'payment_id' => $payment->id,
-            'amount'     => $payment->amount,
-            'type'       => 'credit',
+            'amount' => $payment->amount,
+            'type' => 'credit',
         ]);
     }
 }

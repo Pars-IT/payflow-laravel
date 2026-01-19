@@ -5,8 +5,6 @@ namespace App\Http\Controllers;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;
-use App\Models\Transaction;
-use App\Models\Wallet;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,7 +21,7 @@ class MollieWebhookController extends Controller
             return response()->json(['error' => 'Invalid webhook'], 400);
         }
 
-        $mollie = new MollieApiClient();
+        $mollie = new MollieApiClient;
         $mollie->setApiKey(config('services.mollie.key'));
 
         // Mollie sends the payment id as "id"
@@ -74,6 +72,7 @@ class MollieWebhookController extends Controller
         });
 
         Log::info('Mollie Webhook processed successfully');
+
         return response()->json(['ok' => true]);
     }
 }

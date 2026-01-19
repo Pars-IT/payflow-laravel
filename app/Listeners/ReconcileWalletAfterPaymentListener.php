@@ -27,7 +27,7 @@ class ReconcileWalletAfterPaymentListener implements ShouldQueue
         $calculated = Transaction::where('wallet_id', $wallet->id)
             ->sum('amount');
 
-        if ((int)$wallet->balance !== (int)$calculated) {
+        if ((int) $wallet->balance !== (int) $calculated) {
             Log::warning('Wallet mismatch after payment', [
                 'wallet_id' => $wallet->id,
                 'stored' => $wallet->balance,

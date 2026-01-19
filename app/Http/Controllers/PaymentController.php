@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Payment;
 use App\Jobs\ProcessPaymentJob;
+use App\Models\Payment;
 use App\Payments\GatewayResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-
     public function store(Request $request)
     {
         $request->validate([
@@ -34,7 +33,7 @@ class PaymentController extends Controller
             'idempotency_key' => $request->idempotency_key,
         ]);
 
-        $resolver = new GatewayResolver();
+        $resolver = new GatewayResolver;
         $gateway = $resolver->resolve($payment);
         $result = $gateway->charge($payment);
 

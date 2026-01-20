@@ -3,10 +3,11 @@
 namespace App\Jobs;
 
 use App\Exceptions\Payments\PspException;
-use App\Exceptions\WalletNotFoundException;
+use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Payments\GatewayResolver;
 use App\Services\PaymentFinalizer;
+use App\Services\RedisPaymentService;
 use App\Services\WalletService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -24,41 +25,79 @@ class ProcessPaymentJob implements ShouldQueue
         public string $paymentId
     ) {}
 
-    public function handle(): void
-    {
-        $payment = Payment::find($this->paymentId);
+    public function handle(
+        RedisPaymentService $redis
+    ): void {
+        /**
+         * Acquire Redis lock to prevent double processing
+         */
+        $lock = $redis->acquirePaymentLock($this->paymentId);
 
-        // Payment already processed or missing
-        if (! $payment || $payment->status !== 'pending') {
+        if (! $lock) {
+            // another worker is already processing this payment
             return;
         }
 
-        $resolver = new GatewayResolver;
-        $gateway = $resolver->resolve($payment);
-        $finalizer = app(PaymentFinalizer::class);
         try {
-            $result = $gateway->charge($payment);
+            $payment = Payment::find($this->paymentId);
 
-            if (! $result->success) {
-                $finalizer->fail($payment, $result->failureReason);
-
-                return;
-            }
-            // ASYNC gateways (e.g. Mollie)
-            if ($result->async === true) {
-                // async PSPs are finalized via webhook
+            // Payment already processed or missing
+            if (! $payment || $payment->status !== 'pending') {
                 return;
             }
 
-            // SYNC gateways
-            app(WalletService::class)->creditFromPayment($payment);
+            $resolver = new GatewayResolver;
+            $gateway = $resolver->resolve($payment);
+            $finalizer = app(PaymentFinalizer::class);
 
-            $finalizer->succeed($payment);
+            try {
+                $result = $gateway->charge($payment);
 
-        } catch (PspException $e) {
-            $finalizer->fail($payment, $e->reason());
-        } catch (WalletNotFoundException $e) {
-            $finalizer->fail($payment, 'wallet_not_found');
+                /**
+                 * Business-level failure
+                 */
+                if (! $result->success) {
+                    $finalizer->fail(
+                        $payment,
+                        $result->failureReason
+                    );
+
+                    return;
+                }
+
+                /**
+                 * Async gateways (e.g. Mollie)
+                 * Finalized later via webhook
+                 */
+                if ($result->async === true) {
+                    return;
+                }
+
+                /**
+                 * Sync gateways
+                 */
+                app(WalletService::class)
+                    ->creditFromPayment($payment);
+
+                $finalizer->succeed($payment);
+
+            } catch (PspException $e) {
+                $finalizer->fail(
+                    $payment,
+                    $e->reason()
+                );
+            } catch (WalletNotFoundException $e) {
+                $finalizer->fail(
+                    $payment,
+                    'wallet_not_found'
+                );
+            }
+
+        } finally {
+            /**
+             * Always release Redis lock
+             */
+            $lock->release();
         }
     }
 }

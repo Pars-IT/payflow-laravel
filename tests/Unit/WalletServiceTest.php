@@ -2,6 +2,7 @@
 
 namespace Tests\Unit;
 
+use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\Wallet;
@@ -16,6 +17,7 @@ class WalletServiceTest extends TestCase
     public function test_wallet_is_credited_from_payment(): void
     {
         $user = User::factory()->create();
+
         $wallet = Wallet::factory()->create([
             'user_id' => $user->id,
             'balance' => 0,
@@ -28,9 +30,50 @@ class WalletServiceTest extends TestCase
 
         app(WalletService::class)->creditFromPayment($payment);
 
-        $this->assertDatabaseHas('wallets', [
-            'id' => $wallet->id,
-            'balance' => 1500,
+        $wallet->refresh();
+
+        $this->assertEquals(1500, $wallet->balance);
+    }
+
+    public function test_wallet_is_credited_and_transaction_created(): void
+    {
+        $user = User::factory()->create();
+
+        $wallet = Wallet::factory()->create([
+            'user_id' => $user->id,
+            'balance' => 1000,
         ]);
+
+        $payment = Payment::factory()->create([
+            'user_id' => $user->id,
+            'amount' => 500,
+        ]);
+
+        app(WalletService::class)->creditFromPayment($payment);
+
+        $wallet->refresh();
+
+        $this->assertEquals(1500, $wallet->balance);
+
+        $this->assertDatabaseHas('transactions', [
+            'wallet_id' => $wallet->id,
+            'payment_id' => $payment->id,
+            'amount' => 500,
+            'type' => 'credit',
+        ]);
+    }
+
+    public function test_credit_fails_when_wallet_not_found(): void
+    {
+        $user = User::factory()->create();
+
+        $payment = Payment::factory()->create([
+            'user_id' => $user->id,
+            'amount' => 500,
+        ]);
+
+        $this->expectException(WalletNotFoundException::class);
+
+        app(WalletService::class)->creditFromPayment($payment);
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Exceptions\WalletNotFoundException;
+use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Models\Transaction;
 use App\Models\Wallet;

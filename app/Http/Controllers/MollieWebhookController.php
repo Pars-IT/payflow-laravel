@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Exceptions\WalletNotFoundException;
+use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Services\PaymentFinalizer;
 use App\Services\WalletService;

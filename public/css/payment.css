@@ -1,0 +1,60 @@
+:root {
+    --pending: #f59e0b;
+    --success: #16a34a;
+    --failed: #dc2626;
+}
+
+/* Dark mode */
+body.dark {
+    background-color: #0f172a !important;
+    color: #e5e7eb;
+}
+
+body.dark .card {
+    background-color: #020617;
+    border-color: #1e293b;
+}
+
+/* Dark mode - form controls */
+body.dark .form-control,
+body.dark .form-select {
+    background-color: #020617;
+    color: #e5e7eb;
+    border-color: #1e293b;
+}
+
+body.dark .form-control::placeholder {
+    color: #94a3b8;
+}
+
+body.dark .form-control:focus,
+body.dark .form-select:focus {
+    background-color: #020617;
+    color: #e5e7eb;
+    border-color: #3b82f6;
+    box-shadow: none;
+}
+
+/* Labels */
+body.dark .form-label {
+    color: #cbd5f5;
+}
+
+/* Dark mode headings */
+body.dark h1,
+body.dark h2,
+body.dark h3,
+body.dark h4,
+body.dark h5,
+body.dark h6 {
+    color: #e5e7eb;
+}
+
+.pending { color: var(--pending); }
+.success { color: var(--success); }
+.failed  { color: var(--failed); }
+
+#spinner {
+    display: none;
+    opacity: 0.8;
+}

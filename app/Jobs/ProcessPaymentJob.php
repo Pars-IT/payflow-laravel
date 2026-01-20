@@ -39,6 +39,11 @@ class ProcessPaymentJob implements ShouldQueue
         try {
             $result = $gateway->charge($payment);
 
+            if (! $result->success) {
+                $finalizer->fail($payment, $result->failureReason);
+
+                return;
+            }
             // ASYNC gateways (e.g. Mollie)
             if ($result->async === true) {
                 // async PSPs are finalized via webhook

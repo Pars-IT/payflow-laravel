@@ -19,7 +19,6 @@ class PaymentStatusMail extends Mailable
     public function __construct(
         public Payment $payment,
         public string $status,
-        public string $name,
         public ?string $reason = null
     ) {}
 

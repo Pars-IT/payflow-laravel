@@ -30,8 +30,7 @@ class SendPaymentEmailListener implements ShouldQueue
         $payment = $event->payment;
         $status = $event instanceof PaymentSucceeded ? 'success' : 'failed';
         $reason = $event instanceof PaymentFailed ? $event->reason : null;
-        $name = $payment->user->name;
         Mail::to($payment->user->email)
-            ->send(new PaymentStatusMail($payment, $status, $name, $reason));
+            ->send(new PaymentStatusMail($payment, $status, $reason));
     }
 }

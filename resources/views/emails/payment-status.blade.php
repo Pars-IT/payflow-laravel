@@ -1,4 +1,4 @@
-<p>Hello {{ $name }}</p>
+<p>Hello {{ $payment->user->name }}</p>
 
 <p>
     Your payment of €{{ number_format($payment->amount / 100, 2) }} was <b>{{ $status }}</b>.
@@ -10,3 +10,4 @@
 
 
 <p>Payment ID: {{ $payment->id }}</p>
+<p>Gateway: <b>{{ $payment->gateway }}</b></p>

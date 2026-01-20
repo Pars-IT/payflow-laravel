@@ -17,7 +17,7 @@ class MollieGateway implements PaymentGatewayInterface
             $mollie = new MollieApiClient;
             $mollie->setApiKey(config('services.mollie.key'));
 
-            $baseUrl = config('app.public_url');
+            $baseUrl = config('app.url');
             $molliePayment = $mollie->payments->create([
                 'amount' => [
                     'currency' => 'EUR',
@@ -37,9 +37,8 @@ class MollieGateway implements PaymentGatewayInterface
             $payment->provider_checkout_url = $molliePayment->getCheckoutUrl();
             $payment->save();
 
-            return new GatewayResult(
-                checkoutUrl: $molliePayment->getCheckoutUrl(),
-                async: true
+            return GatewayResult::async(
+                $molliePayment->getCheckoutUrl()
             );
         } catch (ApiException $e) {
             // Log full Mollie error (for debugging / ops)

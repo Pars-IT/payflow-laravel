@@ -1,215 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
     <title>Test Payment</title>
-    <style>
-        :root {
-            --bg: #ffffff;
-            --text: #111827;
-            --card: #f9fafb;
-            --border: #e5e7eb;
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
-            --pending: #f59e0b;
-            --success: #16a34a;
-            --failed: #dc2626;
-        }
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-        body.dark {
-            --bg: #0f172a;
-            --text: #e5e7eb;
-            --card: #020617;
-            --border: #1e293b;
-        }
-
-        body {
-            font-family: Arial, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            transition: background 0.2s, color 0.2s;
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            padding: 20px;
-            width: 320px;
-            border-radius: 8px;
-        }
-
-        button {
-            padding: 6px 12px;
-            cursor: pointer;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
-        }
-
-        button:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        #spinner {
-            display: none;
-            margin-top: 10px;
-            opacity: 0.8;
-        }
-
-        #status {
-            margin-top: 10px;
-            font-weight: bold;
-        }
-
-        .pending { color: var(--pending); }
-        .success { color: var(--success); }
-        .failed  { color: var(--failed); }
-
-        .theme-toggle {
-            margin-bottom: 10px;
-            font-size: 14px;
-        }
-
-        input {
-            padding: 6px;
-            width: 100%;
-            margin-top: 4px;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: transparent;
-            color: var(--text);
-        }
-    </style>
+    <!-- Custom CSS -->
+    <link href="{{ asset('css/payment.css') }}" rel="stylesheet">
 </head>
 <body>
 
-<div class="card">
-    <div class="theme-toggle">
-        <button id="toggle-theme">🌙 Dark mode</button>
+<div class="container">
+    <div class="card mx-auto mt-5 p-4 shadow-sm" style="max-width:420px">
+
+        <div class="d-flex justify-content-end mb-2">
+            <button id="toggle-theme" class="btn btn-sm btn-outline-secondary">
+                🌙 Dark mode
+            </button>
+        </div>
+
+        <h5 class="text-center mb-4">Test Payment</h5>
+
+        <form id="payment-form">
+
+            <div class="mb-3">
+                <label class="form-label">Gateway</label>
+                <select id="gateway" class="form-select">
+                    <option value="ideal">iDEAL</option>
+                    <option value="mollie">Mollie</option>
+                    <option value="ing">ING</option>
+                    <option value="abn-amro">ABN AMRO</option>
+                </select>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Amount (cents)</label>
+                <input
+                    type="number"
+                    id="amount"
+                    class="form-control"
+                    value="1500"
+                    min="1"
+                    required
+                >
+            </div>
+
+            <button id="pay-btn" class="btn btn-primary w-100">
+                Pay
+            </button>
+        </form>
+
+        <div id="spinner" class="text-center mt-3">
+            ⏳ Processing payment...
+        </div>
+
+        <p id="status" class="text-center fw-bold mt-2"></p>
+
     </div>
-
-    <h3>Test Payment</h3>
-
-    <form id="payment-form">
-
-        <label>
-            Gateway:
-            <select id="gateway">
-                <option value="ideal">iDEAL</option>
-                <option value="mollie">Mollie</option>
-                <option value="ing">ING</option>
-                <option value="abn-amro">ABN AMRO</option>
-            </select>
-        </label>
-        <br><br>
-
-        <label>
-            Amount (cents):
-            <input type="number" id="amount" value="1500" min="1" required>
-        </label>
-        <br><br>
-        <button id="pay-btn">Pay</button>
-    </form>
-
-    <div id="spinner">⏳ Processing payment...</div>
-    <p id="status"></p>
 </div>
 
-<script>
-const form = document.getElementById('payment-form');
-const spinner = document.getElementById('spinner');
-const statusEl = document.getElementById('status');
-const button = document.getElementById('pay-btn');
-const toggleBtn = document.getElementById('toggle-theme');
-const body = document.body;
+<!-- Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-/* -------- Theme toggle -------- */
-toggleBtn.onclick = () => {
-    body.classList.toggle('dark');
-    toggleBtn.innerText = body.classList.contains('dark')
-        ? '☀️ Light mode'
-        : '🌙 Dark mode';
-};
-
-const hour = new Date().getHours();
-
-if (hour >= 17 || hour < 8) {
-    body.classList.add('dark');
-    toggleBtn.innerText = '☀️ Light mode';
-} else {
-    body.classList.remove('dark');
-    toggleBtn.innerText = '🌙 Dark mode';
-}
-
-/* -------- Polling -------- */
-async function poll(paymentId) {
-    const interval = setInterval(async () => {
-        const res = await fetch('/api/payments/' + paymentId);
-        const payment = await res.json();
-
-        // Redirect if async gateway produced checkout url
-        if (payment.checkout_url) {
-            clearInterval(interval);
-            window.location.href = payment.checkout_url;
-            return;
-        }
-
-        // Update status
-        statusEl.innerText = 'Status: ' + payment.status;
-        statusEl.className = payment.status;
-
-        // Final state
-        if (payment.status !== 'pending') {
-            spinner.style.display = 'none';
-            button.disabled = false;
-            clearInterval(interval);
-
-            if (payment.status === 'failed') {
-                statusEl.innerText =
-                    'Failed: ' + (payment.failure_reason ?? 'unknown_error');
-            }
-        }
-    }, 1200);
-}
-
-/* -------- Submit -------- */
-form.onsubmit = async e => {
-    e.preventDefault();
-
-    button.disabled = true;
-    spinner.style.display = 'block';
-
-    statusEl.innerText = 'Status: pending';
-    statusEl.className = 'pending';
-
-    const res = await fetch('/api/payments', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-            user_id: 1,
-            gateway: document.getElementById('gateway').value,
-            amount: document.getElementById('amount').value,
-            idempotency_key: 'web-' + Date.now()
-        })
-    });
-
-    const data = await res.json();
-
-    // Immediate failure (fail-fast)
-    if (data.status === 'failed') {
-        spinner.style.display = 'none';
-        button.disabled = false;
-
-        statusEl.innerText =
-            'Failed: ' + (data.failure_reason ?? 'unknown_error');
-        statusEl.className = 'failed';
-        return;
-    }
-
-    // Always poll – sync or async
-    poll(data.id);
-};
-</script>
-
+<!-- Custom JS -->
+<script src="{{ asset('js/payment.js') }}"></script>
 </body>
 </html>

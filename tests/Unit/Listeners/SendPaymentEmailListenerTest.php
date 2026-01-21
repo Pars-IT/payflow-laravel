@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Listeners;
 
+use App\Enums\PaymentStatus;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Mail\PaymentStatusMail;
@@ -25,7 +26,7 @@ class SendPaymentEmailListenerTest extends TestCase
 
         $payment = Payment::factory()->create([
             'user_id' => $user->id,
-            'status' => 'success',
+            'status' => PaymentStatus::Success->value,
         ]);
 
         event(new PaymentSucceeded($payment));
@@ -45,7 +46,7 @@ class SendPaymentEmailListenerTest extends TestCase
 
         $payment = Payment::factory()->create([
             'user_id' => $user->id,
-            'status' => 'failed',
+            'status' => PaymentStatus::Failed->value,
             'failure_reason' => 'psp_error',
         ]);
 

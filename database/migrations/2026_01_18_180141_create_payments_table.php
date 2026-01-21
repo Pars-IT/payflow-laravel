@@ -15,7 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->string('gateway')->default('ideal');
             $table->string('provider')->nullable();
-            $table->string('provider_payment_id')->nullable()->index();
+            $table->string('provider_payment_id')->nullable();
             $table->text('provider_checkout_url')->nullable();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->bigInteger('amount');
@@ -24,6 +24,11 @@ return new class extends Migration
             $table->string('failure_reason')->nullable();
             $table->string('idempotency_key')->unique();
             $table->timestamps();
+            $table->unique(
+                ['provider', 'provider_payment_id'],
+                'provider_payment_unique'
+            );
+            $table->index(['user_id', 'status']);
         });
     }
 

@@ -4,6 +4,9 @@ namespace App\Exceptions\Payments;
 
 use RuntimeException;
 
+/**
+ * General PSP (Payment Service Provider) exception
+ */
 class PspException extends RuntimeException
 {
     public function __construct(

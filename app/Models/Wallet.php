@@ -14,8 +14,4 @@ class Wallet extends Model
         'balance',
         'currency',
     ];
-
-    protected $casts = [
-        'balance' => 'integer',
-    ];
 }

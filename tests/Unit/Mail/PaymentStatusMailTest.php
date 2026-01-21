@@ -2,6 +2,7 @@
 
 namespace Tests\Unit\Mail;
 
+use App\Enums\PaymentStatus;
 use App\Mail\PaymentStatusMail;
 use App\Models\Payment;
 use App\Models\User;
@@ -23,7 +24,7 @@ class PaymentStatusMailTest extends TestCase
             'amount' => 1500,
         ]);
 
-        $mail = new PaymentStatusMail($payment, 'success');
+        $mail = new PaymentStatusMail($payment, PaymentStatus::Success->value);
 
         $this->assertStringContainsString(
             'Hello Test User',

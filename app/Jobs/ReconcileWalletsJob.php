@@ -32,7 +32,7 @@ class ReconcileWalletsJob implements ShouldQueue
                         'calculated' => $calculated,
                     ]);
 
-                    // auto-fix (optional)
+                    // auto-fix
                     $wallet->balance = $calculated;
                     $wallet->save();
                 }

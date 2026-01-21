@@ -2,10 +2,12 @@
 
 namespace App\Services;
 
+use App\Enums\PaymentStatus;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;
 use App\Repositories\PaymentRepository;
+use Throwable;
 
 class PaymentFinalizer
 {
@@ -16,63 +18,41 @@ class PaymentFinalizer
 
     public function succeed(Payment $payment): void
     {
-        /**
-         * Idempotency guard
-         */
-        if ($payment->status === 'success') {
-            return;
-        }
-
-        /**
-         * Persist state (source of truth)
-         */
+        // 1. DB = source of truth
         $this->payments->markSuccess($payment);
 
-        /**
-         * Cache hot state (polling / UI)
-         */
-        $this->redis->setPaymentStatus(
-            $payment->id,
-            'success'
-        );
+        // 2. Redis = best-effort cache for UI
+        $this->safeRedis(function () use ($payment) {
+            $this->redis->setPaymentState($payment->id, [
+                'status' => PaymentStatus::Success->value,
+            ]);
+        });
 
-        /**
-         * Emit domain event
-         */
         event(new PaymentSucceeded($payment));
     }
 
     public function fail(Payment $payment, string $reason): void
     {
-        /**
-         * Idempotency guard
-         */
-        if ($payment->status === 'failed') {
-            return;
+        // 1. DB
+        $this->payments->markFailed($payment, $reason);
+
+        // 2. Redis
+        $this->safeRedis(function () use ($payment, $reason) {
+            $this->redis->setPaymentState($payment->id, [
+                'status' => PaymentStatus::Failed->value,
+                'failure_reason' => $reason,
+            ]);
+        });
+
+        event(new PaymentFailed($payment, $reason));
+    }
+
+    private function safeRedis(callable $callback): void
+    {
+        try {
+            $callback();
+        } catch (Throwable) {
+            // Redis is optional, never block payment flow
         }
-
-        /**
-         * Persist state (source of truth)
-         */
-        $this->payments->markFailed(
-            $payment,
-            $reason
-        );
-
-        /**
-         * Cache hot state (polling / UI)
-         */
-        $this->redis->setPaymentStatus(
-            $payment->id,
-            'failed'
-        );
-
-        /**
-         * Emit domain event
-         */
-        event(new PaymentFailed(
-            $payment,
-            $reason
-        ));
     }
 }

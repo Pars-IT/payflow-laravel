@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -21,7 +22,7 @@ class PaymentFactory extends Factory
             'gateway' => 'ideal',
             'amount' => 1500,
             'currency' => 'EUR',
-            'status' => 'pending',
+            'status' => PaymentStatus::Pending->value,
             'idempotency_key' => $this->faker->uuid(),
             'failure_reason' => null,
         ];

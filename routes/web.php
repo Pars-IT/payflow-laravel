@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\PaymentReturnController;
+use App\Models\Payment;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -8,8 +8,11 @@ Route::get('/', function () {
 });
 
 Route::get('/pay', function () {
-    return view('pay');
+    return view('payments.pay');
 });
 
-Route::get('/payment/return/{payment}', [PaymentReturnController::class, 'show'])
-    ->name('payments.return');
+Route::get('/payments/{payment}', function (Payment $payment) {
+    return view('payments.status', [
+        'paymentId' => $payment->id,
+    ]);
+});

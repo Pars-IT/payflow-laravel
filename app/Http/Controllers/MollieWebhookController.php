@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\PaymentStatus;
 use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Services\PaymentFinalizer;
@@ -12,35 +13,35 @@ use Mollie\Api\MollieApiClient;
 
 class MollieWebhookController extends Controller
 {
-    public function handle(Request $request)
-    {
+    public function handle(
+        Request $request,
+        PaymentFinalizer $finalizer,
+        WalletService $walletService,
+        MollieApiClient $mollieClient
+    ) {
         Log::info('Mollie webhook called', ['payload' => $request->all()]);
 
         if (! $request->has('id')) {
             return response()->json(['error' => 'invalid_webhook'], 400);
         }
 
-        $mollie = new MollieApiClient;
-        $mollie->setApiKey(config('services.mollie.key'));
+        $mollieClient->setApiKey(config('services.mollie.key'));
 
         // Mollie sends the payment id as "id"
-        $molliePayment = $mollie->payments->get($request->id);
+        $molliePayment = $mollieClient->payments->get($request->id);
 
-        $payment = Payment::where(
-            'provider_payment_id',
-            $molliePayment->id
-        )->firstOrFail();
+        $payment = Payment::where('provider', 'mollie')
+            ->where('provider_payment_id', $molliePayment->id)
+            ->firstOrFail();
 
         // Idempotency: do not process finalized payments again
-        if ($payment->status !== 'pending') {
+        if ($payment->status !== PaymentStatus::Pending->value) {
             return response()->json(['ok' => true]);
         }
 
-        $finalizer = app(PaymentFinalizer::class);
-
         if ($molliePayment->isPaid()) {
             try {
-                app(WalletService::class)->creditFromPayment($payment);
+                $walletService->creditFromPayment($payment);
                 $finalizer->succeed($payment);
 
             } catch (WalletNotFoundException $e) {

@@ -6,6 +6,7 @@ use App\Exceptions\Payments\PspException;
 use App\Models\Payment;
 use App\Payments\GatewayResult;
 use App\Payments\PaymentGatewayInterface;
+use Illuminate\Support\Facades\Log;
 use Mollie\Api\Exceptions\ApiException;
 use Mollie\Api\MollieApiClient;
 
@@ -24,7 +25,7 @@ class MollieGateway implements PaymentGatewayInterface
                     'value' => number_format($payment->amount / 100, 2, '.', ''),
                 ],
                 'description' => 'Payment #'.$payment->id,
-                'redirectUrl' => $baseUrl.'/payment/return/'.$payment->id,
+                'redirectUrl' => $baseUrl.'/payments/'.$payment->id,
                 'webhookUrl' => $baseUrl.'/api/webhooks/mollie',
                 'method' => 'ideal',
                 'metadata' => [
@@ -42,7 +43,7 @@ class MollieGateway implements PaymentGatewayInterface
             );
         } catch (ApiException $e) {
             // Log full Mollie error (for debugging / ops)
-            logger()->error('Mollie API error', [
+            Log::error('Mollie API error', [
                 'payment_id' => $payment->id,
                 'error' => $e->getMessage(),
             ]);

@@ -15,8 +15,4 @@ class Transaction extends Model
         'amount',
         'type',
     ];
-
-    protected $casts = [
-        'amount' => 'integer',
-    ];
 }

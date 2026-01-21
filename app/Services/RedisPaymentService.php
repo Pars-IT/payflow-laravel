@@ -4,21 +4,35 @@ namespace App\Services;
 
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
+use Throwable;
 
 class RedisPaymentService
 {
+    /* ---------------- Idempotency ---------------- */
+
     public function getPaymentByIdempotency(string $key): ?string
     {
-        return Cache::get($this->idempotencyKey($key));
+        try {
+            return Cache::get($this->idempotencyKey($key));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
-    public function storeIdempotency(string $key, string $paymentId, int $ttlSeconds = 600): void
-    {
-        Cache::put(
-            $this->idempotencyKey($key),
-            $paymentId,
-            $ttlSeconds
-        );
+    public function storeIdempotency(
+        string $key,
+        string $paymentId,
+        int $ttlSeconds = 600
+    ): void {
+        try {
+            Cache::put(
+                $this->idempotencyKey($key),
+                $paymentId,
+                $ttlSeconds
+            );
+        } catch (Throwable) {
+            // Skip on Redis failure
+        }
     }
 
     protected function idempotencyKey(string $key): string
@@ -26,36 +40,77 @@ class RedisPaymentService
         return "idempotency:{$key}";
     }
 
-    public function setPaymentStatus(string $paymentId, string $status, int $ttlSeconds = 300): void
-    {
-        Cache::put(
-            $this->statusKey($paymentId),
-            $status,
-            $ttlSeconds
-        );
+    /* ---------------- Payment state (UI polling) ---------------- */
+
+    public function setPaymentState(
+        string $paymentId,
+        array $state,
+        int $ttlSeconds = 300
+    ): void {
+        try {
+            Cache::put(
+                $this->stateKey($paymentId),
+                $state,
+                $ttlSeconds
+            );
+        } catch (Throwable) {
+            // Skip on Redis failure
+        }
     }
 
-    public function getPaymentStatus(string $paymentId): ?string
+    public function getPaymentState(string $paymentId): ?array
     {
-        return Cache::get($this->statusKey($paymentId));
+        try {
+            return Cache::get($this->stateKey($paymentId));
+        } catch (Throwable) {
+            return null;
+        }
     }
 
-    protected function statusKey(string $paymentId): string
+    protected function stateKey(string $paymentId): string
     {
-        return "payment:status:{$paymentId}";
+        return "payment:state:{$paymentId}";
     }
 
-    /**
-     * Use Redis-based distributed locks with TTL and safe release semantics to prevent concurrent payment processing.
-     */
-    public function acquirePaymentLock(string $paymentId, int $seconds = 30): ?Lock
-    {
-        $lock = Cache::lock(
-            $this->lockKey($paymentId),
-            $seconds
-        );
+    /* ---------------- Distributed lock ---------------- */
 
-        return $lock->get() ? $lock : null;
+    public function acquirePaymentLock(
+        string $paymentId,
+        int $seconds = 30
+    ): ?Lock {
+        try {
+            $lock = Cache::lock(
+                $this->lockKey($paymentId),
+                $seconds
+            );
+
+            return $lock->get() ? $lock : null;
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    public function withPaymentLock(
+        string $paymentId,
+        callable $callback,
+        int $seconds = 30
+    ): void {
+        try {
+            $lock = Cache::lock($this->lockKey($paymentId), $seconds);
+
+            if (! $lock->get()) {
+                return;
+            }
+
+            try {
+                $callback();
+            } finally {
+                $lock->release();
+            }
+        } catch (Throwable) {
+            // Redis down → execute anyway
+            $callback();
+        }
     }
 
     protected function lockKey(string $paymentId): string

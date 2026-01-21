@@ -2,6 +2,7 @@
 
 namespace App\Listeners;
 
+use App\Enums\PaymentStatus;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Mail\PaymentStatusMail;
@@ -15,20 +16,12 @@ class SendPaymentEmailListener implements ShouldQueue
     public int $backoff = 10;
 
     /**
-     * Create the event listener.
-     */
-    public function __construct()
-    {
-        //
-    }
-
-    /**
      * Handle the event.
      */
     public function handle(PaymentSucceeded|PaymentFailed $event): void
     {
         $payment = $event->payment;
-        $status = $event instanceof PaymentSucceeded ? 'success' : 'failed';
+        $status = $event instanceof PaymentSucceeded ? PaymentStatus::Success->value : PaymentStatus::Failed->value;
         $reason = $event instanceof PaymentFailed ? $event->reason : null;
         Mail::to($payment->user->email)
             ->send(new PaymentStatusMail($payment, $status, $reason));

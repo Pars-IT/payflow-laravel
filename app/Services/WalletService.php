@@ -29,7 +29,7 @@ class WalletService
 
             Transaction::create([
                 'wallet_id' => $wallet->id,
-                'payment_id' => $payment->id,
+                'payment_id' => $payment->id, // unique
                 'amount' => $payment->amount,
                 'type' => 'credit',
             ]);

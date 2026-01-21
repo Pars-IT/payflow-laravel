@@ -3,11 +3,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const body = document.body;
     const toggleBtn = document.getElementById('toggle-theme');
 
-    /* ---------------- THEME (localStorage) ---------------- */
+    /* ---------- THEME ---------- */
 
-    const THEME_KEY = 'theme'; // 'dark' | 'light'
-
-    // Load saved theme
+    const THEME_KEY = 'theme';
     const savedTheme = localStorage.getItem(THEME_KEY);
 
     if (savedTheme === 'dark') {
@@ -21,51 +19,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         toggleBtn.onclick = () => {
             body.classList.toggle('dark');
-
-            const isDark = body.classList.contains('dark');
-            localStorage.setItem(THEME_KEY, isDark ? 'dark' : 'light');
-
-            toggleBtn.innerText = isDark
+            localStorage.setItem(
+                THEME_KEY,
+                body.classList.contains('dark') ? 'dark' : 'light'
+            );
+            toggleBtn.innerText = body.classList.contains('dark')
                 ? '☀️ Light mode'
                 : '🌙 Dark mode';
         };
     }
 
-    /* ---------------- PAYMENT FORM PAGE ---------------- */
+    /* ---------- CREATE PAYMENT ---------- */
 
     const form = document.getElementById('payment-form');
 
     if (form) {
         const spinner = document.getElementById('spinner');
-        const statusEl = document.getElementById('status');
         const button = document.getElementById('pay-btn');
-
-        async function poll(paymentId) {
-            const interval = setInterval(async () => {
-                const res = await fetch('/api/payments/' + paymentId);
-                const payment = await res.json();
-
-                if (payment.checkout_url) {
-                    clearInterval(interval);
-                    window.location.href = payment.checkout_url;
-                    return;
-                }
-
-                statusEl.innerText = 'Status: ' + payment.status;
-                statusEl.className = payment.status + ' text-center fw-bold';
-
-                if (payment.status !== 'pending') {
-                    spinner.style.display = 'none';
-                    button.disabled = false;
-                    clearInterval(interval);
-
-                    if (payment.status === 'failed') {
-                        statusEl.innerText =
-                            'Failed: ' + (payment.failure_reason ?? 'unknown_error');
-                    }
-                }
-            }, 1200);
-        }
 
         form.onsubmit = async e => {
             e.preventDefault();
@@ -73,12 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
             button.disabled = true;
             spinner.style.display = 'block';
 
-            statusEl.innerText = 'Status: pending';
-            statusEl.className = 'pending text-center fw-bold';
-
             const res = await fetch('/api/payments', {
                 method: 'POST',
-                headers: {'Content-Type': 'application/json'},
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: 1,
                     gateway: document.getElementById('gateway').value,
@@ -89,38 +56,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await res.json();
 
-            if (data.status === 'failed') {
-                spinner.style.display = 'none';
-                button.disabled = false;
-                statusEl.innerText =
-                    'Failed: ' + (data.failure_reason ?? 'unknown_error');
-                statusEl.className = 'failed text-center fw-bold';
-                return;
-            }
-
-            poll(data.id);
+            // Redirect to resumable status page
+            window.location.href = `/payments/${data.id}`;
         };
     }
 
-    /* ---------------- RETURN / STATUS PAGE ---------------- */
-
+    /* ---------- STATUS PAGE (POLLING) ---------- */
     if (window.PAYMENT_ID) {
-        const el = document.getElementById('status');
-        const payAgainEl = document.getElementById('pay-again-link');
+        const statusEl = document.getElementById('status');
 
         const poll = setInterval(async () => {
             const res = await fetch('/api/payments/' + window.PAYMENT_ID);
-            const data = await res.json();
+            const payment = await res.json();
 
-            el.innerText = data.status;
-            el.className = data.status + ' fw-bold text-center';
+            // Redirect to PSP
+            if (payment.checkout_url && payment.status === 'pending') {
+                statusEl.innerText = 'Redirecting to bank...';
+                statusEl.className = 'pending fw-bold text-center';
 
-            if (data.status !== 'pending') {
                 clearInterval(poll);
-
-                if (payAgainEl) payAgainEl.style.display = 'block';
+                window.location.href = payment.checkout_url;
+                return;
             }
+
+            // Pending but no redirect yet
+            if (payment.status === 'pending') {
+                statusEl.innerText = 'Processing payment...';
+                statusEl.className = 'pending fw-bold text-center';
+                return;
+            }
+
+            // Final states
+            clearInterval(poll);
+
+            if (payment.status === 'success') {
+                statusEl.innerText = 'Payment successful';
+                statusEl.className = 'success fw-bold text-center';
+            }
+
+            if (payment.status === 'failed') {
+                statusEl.innerText =
+                    'Payment failed: ' + (payment.failure_reason ?? 'unknown_error');
+                statusEl.className = 'failed fw-bold text-center';
+            }
+
+            document.getElementById('pay-new-link').style.display = 'block';
         }, 1500);
     }
+
 
 });

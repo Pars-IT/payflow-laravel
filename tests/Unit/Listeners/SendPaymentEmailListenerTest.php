@@ -1,7 +1,8 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Listeners;
 
+use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Mail\PaymentStatusMail;
 use App\Models\Payment;
@@ -48,7 +49,7 @@ class SendPaymentEmailListenerTest extends TestCase
             'failure_reason' => 'psp_error',
         ]);
 
-        event(new \App\Events\PaymentFailed($payment, 'psp_error'));
+        event(new PaymentFailed($payment, 'psp_error'));
 
         Mail::assertSent(PaymentStatusMail::class);
     }

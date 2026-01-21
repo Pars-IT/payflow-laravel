@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Payments\Gateways;
 
 use App\Models\Payment;
 use App\Payments\Gateways\AbnAmroGateway;

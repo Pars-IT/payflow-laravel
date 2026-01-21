@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Unit;
+namespace Tests\Unit\Listeners;
 
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;

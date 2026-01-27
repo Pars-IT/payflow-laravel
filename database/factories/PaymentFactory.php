@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -18,12 +19,12 @@ class PaymentFactory extends Factory
     {
         return [
             'id' => (string) Str::uuid(),
-            'user_id' => 1,
+            'user_id' => User::factory(),
             'gateway' => 'ideal',
             'amount' => 1500,
             'currency' => 'EUR',
             'status' => PaymentStatus::Pending->value,
-            'idempotency_key' => $this->faker->uuid(),
+            'idempotency_key' => (string) Str::uuid(),
             'failure_reason' => null,
         ];
     }

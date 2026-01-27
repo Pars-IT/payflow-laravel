@@ -21,75 +21,176 @@ class PaymentRepositoryTest extends TestCase
         $this->repo = app(PaymentRepositoryInterface::class);
     }
 
-    public function test_marks_payment_as_success(): void
+    public function test_it_marks_pending_payment_as_success(): void
     {
-        $user = User::factory()->create();
+        $payment = $this->createPayment(PaymentStatus::Pending);
 
-        $payment = Payment::factory()->create([
-            'user_id' => $user->id,
-            'status' => PaymentStatus::Pending->value,
-        ]);
-
+        // act
         $result = $this->repo->markSuccess($payment->id);
 
+        // assert
         $payment->refresh();
 
         $this->assertTrue($result);
-        $this->assertEquals(PaymentStatus::Success->value, $payment->status);
+        $this->assertSame(PaymentStatus::Success->value, $payment->status);
     }
 
-    public function test_marks_payment_as_failed_with_reason(): void
+    public function test_it_marks_pending_payment_as_failed_with_reason(): void
     {
-        $user = User::factory()->create();
+        $payment = $this->createPayment(PaymentStatus::Pending);
 
-        $payment = Payment::factory()->create([
-            'user_id' => $user->id,
-            'status' => PaymentStatus::Pending->value,
-        ]);
-
+        // act
         $result = $this->repo->markFailed($payment->id, 'psp_error');
 
+        // assert
         $payment->refresh();
 
         $this->assertTrue($result);
-        $this->assertEquals(PaymentStatus::Failed->value, $payment->status);
-        $this->assertEquals('psp_error', $payment->failure_reason);
+        $this->assertSame(PaymentStatus::Failed->value, $payment->status);
+        $this->assertSame('psp_error', $payment->failure_reason);
     }
 
-    public function test_does_not_override_already_successful_payment(): void
+    public function test_it_does_not_override_already_successful_payment(): void
     {
-        $user = User::factory()->create();
+        $payment = $this->createPayment(PaymentStatus::Success);
 
-        $payment = Payment::factory()->create([
-            'user_id' => $user->id,
-            'status' => PaymentStatus::Success->value,
-        ]);
-
+        // act
         $result = $this->repo->markFailed($payment->id, 'should_not_happen');
-        $this->assertFalse($result);
 
+        // assert
         $payment->refresh();
 
-        $this->assertEquals(PaymentStatus::Success->value, $payment->status);
+        $this->assertFalse($result);
+        $this->assertSame(PaymentStatus::Success->value, $payment->status);
         $this->assertNull($payment->failure_reason);
     }
 
-    public function test_does_not_override_already_failed_payment(): void
+    public function test_it_does_not_override_already_failed_payment(): void
     {
+        $payment = $this->createPayment(
+            PaymentStatus::Failed,
+            ['failure_reason' => 'initial_error']
+        );
+
+        // act
+        $result = $this->repo->markSuccess($payment->id);
+
+        // assert
+        $payment->refresh();
+
+        $this->assertFalse($result);
+        $this->assertSame(PaymentStatus::Failed->value, $payment->status);
+        $this->assertSame('initial_error', $payment->failure_reason);
+    }
+
+    private function createPayment(
+        PaymentStatus $status,
+        array $overrides = []
+    ): Payment {
         $user = User::factory()->create();
 
-        $payment = Payment::factory()->create([
+        return Payment::factory()->create(array_merge([
             'user_id' => $user->id,
-            'status' => PaymentStatus::Failed->value,
-            'failure_reason' => 'initial_error',
+            'status' => $status->value,
+        ], $overrides));
+    }
+
+    public function test_it_finds_payment_by_id(): void
+    {
+        $payment = Payment::factory()->create();
+
+        $found = $this->repo->findById($payment->id);
+
+        $this->assertSame($payment->id, $found->id);
+    }
+
+    public function test_it_finds_payment_by_idempotency_key(): void
+    {
+        $payment = Payment::factory()->create([
+            'idempotency_key' => 'key-123',
         ]);
 
-        $result = $this->repo->markSuccess($payment->id);
-        $this->assertFalse($result);
+        $found = $this->repo->findByIdempotencyKey('key-123');
+
+        $this->assertNotNull($found);
+        $this->assertSame($payment->id, $found->id);
+    }
+
+    public function test_it_returns_null_when_idempotency_key_not_found(): void
+    {
+        $result = $this->repo->findByIdempotencyKey('missing-key');
+
+        $this->assertNull($result);
+    }
+
+    public function test_it_finds_payment_by_provider_payment_id(): void
+    {
+        $payment = Payment::factory()->create([
+            'provider' => 'mollie',
+            'provider_payment_id' => 'tr_123',
+        ]);
+
+        $found = $this->repo->findByProviderPaymentId('mollie', 'tr_123');
+
+        $this->assertSame($payment->id, $found->id);
+    }
+
+    public function test_it_creates_pending_payment(): void
+    {
+        $payment = $this->repo->createPending([
+            'user_id' => User::factory()->create()->id,
+            'gateway' => 'ideal',
+            'amount' => 2000,
+            'idempotency_key' => 'key-xyz',
+        ]);
+
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => PaymentStatus::Pending->value,
+            'idempotency_key' => 'key-xyz',
+        ]);
+    }
+
+    public function test_it_attaches_provider_data_to_payment(): void
+    {
+        $payment = Payment::factory()->create();
+
+        $this->repo->attachProviderData(
+            $payment->id,
+            'mollie',
+            'tr_999',
+            'https://checkout.test'
+        );
 
         $payment->refresh();
 
-        $this->assertEquals(PaymentStatus::Failed->value, $payment->status);
-        $this->assertEquals('initial_error', $payment->failure_reason);
+        $this->assertSame('mollie', $payment->provider);
+        $this->assertSame('tr_999', $payment->provider_payment_id);
+        $this->assertSame('https://checkout.test', $payment->provider_checkout_url);
+    }
+
+    public function test_it_marks_pending_payment_as_timed_out(): void
+    {
+        $payment = Payment::factory()->create([
+            'status' => PaymentStatus::Pending->value,
+        ]);
+
+        $this->repo->markTimedOut($payment);
+
+        $payment->refresh();
+
+        $this->assertSame(PaymentStatus::Failed->value, $payment->status);
+        $this->assertSame('processing_timeout', $payment->failure_reason);
+    }
+
+    public function test_it_does_not_timeout_non_pending_payment(): void
+    {
+        $payment = Payment::factory()->create([
+            'status' => PaymentStatus::Success->value,
+        ]);
+
+        $result = $this->repo->markTimedOut($payment);
+
+        $this->assertFalse($result);
     }
 }

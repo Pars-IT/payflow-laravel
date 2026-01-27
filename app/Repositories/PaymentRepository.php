@@ -31,10 +31,13 @@ class PaymentRepository implements PaymentRepositoryInterface
 
     public function markTimedOut(
         Payment $payment,
-    ): void {
-        $payment->status = PaymentStatus::Failed->value;
-        $payment->failure_reason = 'processing_timeout';
-        $payment->save();
+    ): bool {
+        return Payment::where('id', $payment->id)
+            ->where('status', PaymentStatus::Pending->value)
+            ->update([
+                'status' => PaymentStatus::Failed->value,
+                'failure_reason' => 'processing_timeout',
+            ]) === 1;
     }
 
     public function createPending(array $data): Payment

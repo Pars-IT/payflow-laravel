@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\PaymentStatus;
 use App\Exceptions\Payments\WalletNotFoundException;
-use App\Models\Payment;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Services\PaymentFinalizer;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
@@ -17,7 +17,8 @@ class MollieWebhookController extends Controller
         Request $request,
         PaymentFinalizer $finalizer,
         WalletService $walletService,
-        MollieApiClient $mollieClient
+        MollieApiClient $mollieClient,
+        PaymentRepositoryInterface $paymentRepository
     ) {
         Log::info('Mollie webhook called', ['payload' => $request->all()]);
 
@@ -30,9 +31,7 @@ class MollieWebhookController extends Controller
         // Mollie sends the payment id as "id"
         $molliePayment = $mollieClient->payments->get($request->id);
 
-        $payment = Payment::where('provider', 'mollie')
-            ->where('provider_payment_id', $molliePayment->id)
-            ->firstOrFail();
+        $payment = $paymentRepository->findByProviderPaymentId('mollie', $molliePayment->id);
 
         // Idempotency: do not process finalized payments again
         if (PaymentStatus::from($payment->status)->isFinal()) {

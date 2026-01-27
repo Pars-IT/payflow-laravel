@@ -15,7 +15,7 @@ interface PaymentRepositoryInterface
         string $providerPaymentId
     ): Payment;
 
-    public function markTimedOut(Payment $payment): void;
+    public function markTimedOut(Payment $payment): bool;
 
     public function createPending(array $data): Payment;
 

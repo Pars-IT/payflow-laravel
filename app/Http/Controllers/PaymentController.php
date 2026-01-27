@@ -75,7 +75,7 @@ class PaymentController extends Controller
         if (
             PaymentStatus::from($payment->status)->isPending() &&
             $payment->provider_checkout_url === null &&
-            $payment->created_at->lt(now()->subMinutes(2))
+            $payment->created_at->lt(now()->subMinutes(1))
         ) {
             // auto-heal
             $paymentRepository->markTimedOut($payment);

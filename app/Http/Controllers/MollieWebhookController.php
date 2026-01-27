@@ -35,7 +35,7 @@ class MollieWebhookController extends Controller
             ->firstOrFail();
 
         // Idempotency: do not process finalized payments again
-        if ($payment->status !== PaymentStatus::Pending->value) {
+        if (PaymentStatus::from($payment->status)->isFinal()) {
             return response()->json(['ok' => true]);
         }
 

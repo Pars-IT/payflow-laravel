@@ -74,7 +74,7 @@ class PaymentController extends Controller
         ];
 
         if (
-            $payment->status === PaymentStatus::Pending->value &&
+            PaymentStatus::from($payment->status)->isPending() &&
             $payment->provider_checkout_url === null &&
             $payment->created_at->lt(now()->subMinutes(2))
         ) {
@@ -88,7 +88,7 @@ class PaymentController extends Controller
          * Warm Redis cache
          */
         if (
-            $payment->status !== PaymentStatus::Pending->value
+            PaymentStatus::from($payment->status)->isFinal()
             || $payment->provider_checkout_url !== null
         ) {
             $redis->setPaymentState($payment->id, [

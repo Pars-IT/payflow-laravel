@@ -12,4 +12,9 @@ enum PaymentStatus: string
     {
         return $this !== self::Pending;
     }
+
+    public function isPending(): bool
+    {
+        return $this === self::Pending;
+    }
 }

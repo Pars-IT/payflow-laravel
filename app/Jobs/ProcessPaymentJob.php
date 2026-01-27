@@ -40,7 +40,7 @@ class ProcessPaymentJob implements ShouldQueue
             $payment = Payment::find($this->paymentId);
 
             // already handled or missing
-            if (! $payment || $payment->status !== PaymentStatus::Pending->value) {
+            if (! $payment || PaymentStatus::from($payment->status)->isFinal()) {
                 return;
             }
 

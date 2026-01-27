@@ -39,10 +39,13 @@ class ProcessPaymentJobTest extends TestCase
 
         // fake redis (lock always acquired)
         /** @var RedisPaymentService&MockInterface $redis */
-        $redis = $this->mock(RedisPaymentService::class);
-        $redis->shouldReceive('withPaymentLock')
-            ->once()
-            ->andReturnUsing(fn ($id, $cb) => $cb());
+        $redis = $this->mock(RedisPaymentService::class, function ($mock) {
+            $mock->shouldReceive('withPaymentLock')
+                ->once()
+                ->andReturnUsing(fn ($id, $cb) => $cb());
+
+            $mock->shouldIgnoreMissing();
+        });
 
         $job = new ProcessPaymentJob($payment->id);
         $job->handle(
@@ -75,10 +78,13 @@ class ProcessPaymentJobTest extends TestCase
         ]);
 
         /** @var RedisPaymentService&MockInterface $redis */
-        $redis = $this->mock(RedisPaymentService::class);
-        $redis->shouldReceive('withPaymentLock')
-            ->once()
-            ->andReturnUsing(fn ($id, $cb) => $cb());
+        $redis = $this->mock(RedisPaymentService::class, function ($mock) {
+            $mock->shouldReceive('withPaymentLock')
+                ->once()
+                ->andReturnUsing(fn ($id, $cb) => $cb());
+
+            $mock->shouldIgnoreMissing();
+        });
 
         $job = new ProcessPaymentJob($payment->id);
         $job->handle(

@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Contracts\Cache\Lock;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class RedisPaymentService
@@ -12,11 +13,9 @@ class RedisPaymentService
 
     public function getPaymentByIdempotency(string $key): ?string
     {
-        try {
-            return Cache::get($this->idempotencyKey($key));
-        } catch (Throwable) {
-            return null;
-        }
+        return $this->safe(
+            fn () => Cache::get($this->idempotencyKey($key))
+        );
     }
 
     public function storeIdempotency(
@@ -24,15 +23,13 @@ class RedisPaymentService
         string $paymentId,
         int $ttlSeconds = 600
     ): void {
-        try {
-            Cache::put(
+        $this->safe(
+            fn () => Cache::put(
                 $this->idempotencyKey($key),
                 $paymentId,
                 $ttlSeconds
-            );
-        } catch (Throwable) {
-            // Skip on Redis failure
-        }
+            )
+        );
     }
 
     protected function idempotencyKey(string $key): string
@@ -47,24 +44,20 @@ class RedisPaymentService
         array $state,
         int $ttlSeconds = 300
     ): void {
-        try {
-            Cache::put(
+        $this->safe(
+            fn () => Cache::put(
                 $this->stateKey($paymentId),
                 $state,
                 $ttlSeconds
-            );
-        } catch (Throwable) {
-            // Skip on Redis failure
-        }
+            )
+        );
     }
 
     public function getPaymentState(string $paymentId): ?array
     {
-        try {
-            return Cache::get($this->stateKey($paymentId));
-        } catch (Throwable) {
-            return null;
-        }
+        return $this->safe(
+            fn () => Cache::get($this->stateKey($paymentId)),
+        );
     }
 
     protected function stateKey(string $paymentId): string
@@ -78,16 +71,13 @@ class RedisPaymentService
         string $paymentId,
         int $seconds = 30
     ): ?Lock {
-        try {
-            $lock = Cache::lock(
-                $this->lockKey($paymentId),
-                $seconds
-            );
+        return $this->safe(
+            function () use ($paymentId, $seconds) {
+                $lock = Cache::lock($this->lockKey($paymentId), $seconds);
 
-            return $lock->get() ? $lock : null;
-        } catch (Throwable) {
-            return null;
-        }
+                return $lock->get() ? $lock : null;
+            }
+        );
     }
 
     public function withPaymentLock(
@@ -95,26 +85,43 @@ class RedisPaymentService
         callable $callback,
         int $seconds = 30
     ): void {
-        try {
-            $lock = Cache::lock($this->lockKey($paymentId), $seconds);
+        $this->safe(
+            function () use ($paymentId, $seconds, $callback) {
+                $lock = Cache::lock($this->lockKey($paymentId), $seconds);
 
-            if (! $lock->get()) {
-                return;
-            }
+                if (! $lock->get()) {
+                    return;
+                }
 
-            try {
-                $callback();
-            } finally {
-                $lock->release();
+                try {
+                    $callback();
+                } finally {
+                    $lock->release();
+                }
             }
-        } catch (Throwable) {
-            // Redis down → execute anyway
-            $callback();
-        }
+        ) ?? $callback(); // Redis down → run anyway
     }
 
     protected function lockKey(string $paymentId): string
     {
         return "payment:lock:{$paymentId}";
+    }
+
+    /* ---------------- Safety wrapper ---------------- */
+
+    private function safe(
+        callable $callback,
+        mixed $default = null
+    ): mixed {
+        try {
+            return $callback();
+        } catch (Throwable $e) {
+            Log::warning('Redis operation failed', [
+                'context' => __METHOD__,
+                'exception' => $e,
+            ]);
+
+            return $default;
+        }
     }
 }

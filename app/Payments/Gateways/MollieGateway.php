@@ -33,13 +33,9 @@ class MollieGateway implements PaymentGatewayInterface
                 ],
             ]);
 
-            $payment->provider = 'mollie';
-            $payment->provider_payment_id = $molliePayment->id;
-            $payment->provider_checkout_url = $molliePayment->getCheckoutUrl();
-            $payment->save();
-
             return GatewayResult::async(
-                $molliePayment->getCheckoutUrl()
+                providerPaymentId: $molliePayment->id,
+                checkoutUrl: $molliePayment->getCheckoutUrl()
             );
         } catch (ApiException $e) {
             // Log full Mollie error (for debugging / ops)

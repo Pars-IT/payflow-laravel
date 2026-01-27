@@ -10,10 +10,12 @@
         "laravel/framework": "^12.0",
         "laravel/tinker": "^2.10.1",
         "mollie/mollie-api-php": "^3.8",
-        "vladimir-yuldashev/laravel-queue-rabbitmq": "^14.4"
+        "vladimir-yuldashev/laravel-queue-rabbitmq": "^14.4",
+        "ext-redis": "*"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "jetbrains/phpstorm-stubs": "^2025.3",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.27",
         "laravel/sail": "^1.41",

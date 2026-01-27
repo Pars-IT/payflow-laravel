@@ -4,47 +4,107 @@ namespace App\Repositories;
 
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
-class PaymentRepository
+class PaymentRepository implements PaymentRepositoryInterface
 {
-    /**
-     * Lock payment row only if still pending, otherwise return null
-     */
-    private function lockPending(Payment $payment): ?Payment
+    public function findById(string $id): Payment
     {
-        return Payment::where('id', $payment->id)
-            ->where('status', PaymentStatus::Pending->value)
-            ->lockForUpdate()
-            ->first();
+        return Payment::findOrFail($id);
     }
 
-    public function markSuccess(Payment $payment): void
+    public function findByIdempotencyKey(string $key): ?Payment
     {
-        DB::transaction(function () use ($payment) {
-            $locked = $this->lockPending($payment);
+        return Payment::where('idempotency_key', $key)->first();
+    }
 
-            if (! $locked) {
-                return; // already finalized
+    public function findByProviderPaymentId(
+        string $provider,
+        string $providerPaymentId
+    ): Payment {
+        return Payment::where('provider', $provider)
+            ->where('provider_payment_id', $providerPaymentId)
+            ->firstOrFail();
+    }
+
+    public function markTimedOut(
+        Payment $payment,
+    ): void {
+        $payment->status = PaymentStatus::Failed->value;
+        $payment->failure_reason = 'processing_timeout';
+        $payment->save();
+    }
+
+    public function createPending(array $data): Payment
+    {
+        return Payment::create([
+            'id' => (string) Str::uuid(),
+            'user_id' => $data['user_id'],
+            'gateway' => $data['gateway'],
+            'amount' => $data['amount'],
+            'currency' => 'EUR',
+            'status' => PaymentStatus::Pending->value,
+            'idempotency_key' => $data['idempotency_key'],
+        ]);
+    }
+
+    public function attachProviderData(
+        string $paymentId,
+        string $provider,
+        string $providerPaymentId,
+        string $checkoutUrl
+    ): void {
+        Payment::where('id', $paymentId)->update([
+            'provider' => $provider,
+            'provider_payment_id' => $providerPaymentId,
+            'provider_checkout_url' => $checkoutUrl,
+        ]);
+    }
+
+    /**
+     * Try to finalize a pending payment.
+     * Returns true if state changed, false if already finalized.
+     */
+    public function markSuccess(string $paymentId): bool
+    {
+        return DB::transaction(function () use ($paymentId) {
+            $payment = Payment::where('id', $paymentId)
+                ->where('status', PaymentStatus::Pending->value)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $payment) {
+                return false;
             }
 
-            $locked->status = PaymentStatus::Success->value;
-            $locked->save();
+            $payment->update([
+                'status' => PaymentStatus::Success->value,
+            ]);
+
+            return true;
         });
     }
 
-    public function markFailed(Payment $payment, string $reason): void
+    public function markFailed(string $paymentId, string $reason): bool
     {
-        DB::transaction(function () use ($payment, $reason) {
-            $locked = $this->lockPending($payment);
+        return DB::transaction(function () use ($paymentId, $reason) {
+            $payment = Payment::where('id', $paymentId)
+                ->where('status', PaymentStatus::Pending->value)
+                ->lockForUpdate()
+                ->first();
 
-            if (! $locked) {
-                return; // already finalized
+            if (! $payment) {
+                return false;
             }
 
-            $locked->status = PaymentStatus::Failed->value;
-            $locked->failure_reason = $reason;
-            $locked->save();
+            $payment->update([
+                'status' => PaymentStatus::Failed->value,
+                'failure_reason' => $reason,
+            ]);
+
+            return true;
         });
     }
 }

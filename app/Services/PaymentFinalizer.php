@@ -6,39 +6,41 @@ use App\Enums\PaymentStatus;
 use App\Events\PaymentFailed;
 use App\Events\PaymentSucceeded;
 use App\Models\Payment;
-use App\Repositories\PaymentRepository;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 
 class PaymentFinalizer
 {
     public function __construct(
-        private PaymentRepository $payments,
-        private RedisPaymentService $redis
+        private PaymentRepositoryInterface $payments,
+        private RedisPaymentService $redisPaymentService
     ) {}
 
     public function succeed(Payment $payment): void
     {
-        // 1. DB = source of truth
-        $this->payments->markSuccess($payment);
+        if (! $this->payments->markSuccess($payment->id)) {
+            return; // already finalized
+        }
 
-        // 2. Redis = best-effort
-        $this->redis->setPaymentState($payment->id, [
+        // Redis = best-effort
+        $this->redisPaymentService->setPaymentState($payment->id, [
             'status' => PaymentStatus::Success->value,
         ]);
 
-        event(new PaymentSucceeded($payment));
+        PaymentSucceeded::dispatch($payment);
     }
 
     public function fail(Payment $payment, string $reason): void
     {
-        // 1. DB
-        $this->payments->markFailed($payment, $reason);
+        if (! $this->payments->markFailed($payment->id, $reason)) {
+            return; // already finalized
+        }
 
-        // 2. Redis = best-effort
-        $this->redis->setPaymentState($payment->id, [
+        // Redis = best-effort
+        $this->redisPaymentService->setPaymentState($payment->id, [
             'status' => PaymentStatus::Failed->value,
             'failure_reason' => $reason,
         ]);
 
-        event(new PaymentFailed($payment, $reason));
+        PaymentFailed::dispatch($payment, $reason);
     }
 }

@@ -29,7 +29,7 @@ class SendPaymentEmailListenerTest extends TestCase
             'status' => PaymentStatus::Success->value,
         ]);
 
-        event(new PaymentSucceeded($payment));
+        PaymentSucceeded::dispatch($payment);
 
         Mail::assertSent(PaymentStatusMail::class, function ($mail) use ($user) {
             return $mail->hasTo($user->email);
@@ -50,7 +50,7 @@ class SendPaymentEmailListenerTest extends TestCase
             'failure_reason' => 'psp_error',
         ]);
 
-        event(new PaymentFailed($payment, 'psp_error'));
+        PaymentFailed::dispatch($payment, 'psp_error');
 
         Mail::assertSent(PaymentStatusMail::class);
     }

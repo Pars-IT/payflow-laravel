@@ -2,40 +2,15 @@
 
 namespace App\Services;
 
-use Illuminate\Contracts\Cache\Lock;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Redis;
 use Throwable;
 
 class RedisPaymentService
 {
-    /* ---------------- Idempotency ---------------- */
-
-    public function getPaymentByIdempotency(string $key): ?string
-    {
-        return $this->safe(
-            fn () => Cache::get($this->idempotencyKey($key))
-        );
-    }
-
-    public function storeIdempotency(
-        string $key,
-        string $paymentId,
-        int $ttlSeconds = 600
-    ): void {
-        $this->safe(
-            fn () => Cache::put(
-                $this->idempotencyKey($key),
-                $paymentId,
-                $ttlSeconds
-            )
-        );
-    }
-
-    protected function idempotencyKey(string $key): string
-    {
-        return "idempotency:{$key}";
-    }
+    public function __construct(
+        private readonly Redis $redis
+    ) {}
 
     /* ---------------- Payment state (UI polling) ---------------- */
 
@@ -44,75 +19,77 @@ class RedisPaymentService
         array $state,
         int $ttlSeconds = 300
     ): void {
-        $this->safe(
-            fn () => Cache::put(
+        $this->safe(function () use ($paymentId, $state, $ttlSeconds) {
+            $this->redis->setex(
                 $this->stateKey($paymentId),
-                $state,
-                $ttlSeconds
-            )
-        );
+                $ttlSeconds,
+                json_encode($state, JSON_THROW_ON_ERROR)
+            );
+        });
     }
 
     public function getPaymentState(string $paymentId): ?array
     {
-        return $this->safe(
-            fn () => Cache::get($this->stateKey($paymentId)),
-        );
+        return $this->safe(function () use ($paymentId) {
+            $value = $this->redis->get($this->stateKey($paymentId));
+
+            return $value ? json_decode($value, true, 512, JSON_THROW_ON_ERROR) : null;
+        });
     }
 
-    protected function stateKey(string $paymentId): string
+    private function stateKey(string $paymentId): string
     {
         return "payment:state:{$paymentId}";
     }
 
-    /* ---------------- Distributed lock ---------------- */
-
-    public function acquirePaymentLock(
-        string $paymentId,
-        int $seconds = 30
-    ): ?Lock {
-        return $this->safe(
-            function () use ($paymentId, $seconds) {
-                $lock = Cache::lock($this->lockKey($paymentId), $seconds);
-
-                return $lock->get() ? $lock : null;
-            }
-        );
-    }
+    /* ---------------- Distributed lock (SAFE) ---------------- */
 
     public function withPaymentLock(
         string $paymentId,
         callable $callback,
-        int $seconds = 30
+        int $ttlSeconds = 30
     ): void {
-        $this->safe(
-            function () use ($paymentId, $seconds, $callback) {
-                $lock = Cache::lock($this->lockKey($paymentId), $seconds);
+        $lockKey = $this->lockKey($paymentId);
+        $token = bin2hex(random_bytes(16));
 
-                if (! $lock->get()) {
-                    return;
-                }
+        $acquired = $this->safe(fn () => $this->redis->set($lockKey, $token, ['nx', 'ex' => $ttlSeconds]),
+            false
+        );
 
-                try {
-                    $callback();
-                } finally {
-                    $lock->release();
-                }
-            }
-        ) ?? $callback(); // Redis down → run anyway
+        if (! $acquired) {
+            return;
+        }
+
+        try {
+            $callback();
+        } finally {
+            $this->releaseLock($lockKey, $token);
+        }
     }
 
-    protected function lockKey(string $paymentId): string
+    private function releaseLock(string $key, string $token): void
+    {
+        // Lua → atomic check & delete
+        $lua = <<<'LUA'
+if redis.call("GET", KEYS[1]) == ARGV[1] then
+    return redis.call("DEL", KEYS[1])
+end
+return 0
+LUA;
+
+        $this->safe(fn () => $this->redis->eval($lua, [$key, $token], 1)
+        );
+    }
+
+    private function lockKey(string $paymentId): string
     {
         return "payment:lock:{$paymentId}";
     }
 
     /* ---------------- Safety wrapper ---------------- */
 
-    private function safe(
-        callable $callback,
-        mixed $default = null
-    ): mixed {
+    private function safe(callable $callback, mixed $default = null): mixed
+    {
         try {
             return $callback();
         } catch (Throwable $e) {

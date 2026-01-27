@@ -17,9 +17,10 @@ class GatewayResultTest extends TestCase
 
     public function test_async_result(): void
     {
-        $result = GatewayResult::async('https://example.com');
+        $result = GatewayResult::async(1, 'https://example.com');
 
         $this->assertTrue($result->async);
         $this->assertEquals('https://example.com', $result->checkoutUrl);
+        $this->assertEquals(1, $result->providerPaymentId);
     }
 }

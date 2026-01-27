@@ -32,7 +32,7 @@ class ReconcileWalletAfterPaymentListenerTest extends TestCase
             'user_id' => $user->id,
         ]);
 
-        event(new PaymentSucceeded($payment));
+        PaymentSucceeded::dispatch($payment);
 
         $wallet->refresh();
 

@@ -8,6 +8,7 @@ class GatewayResult
         public bool $success,
         public ?string $failureReason = null,
         public ?string $checkoutUrl = null,
+        public ?string $providerPaymentId = null,
         public bool $async = false
     ) {}
 
@@ -21,11 +22,14 @@ class GatewayResult
         return new self(success: false, failureReason: $reason);
     }
 
-    public static function async(string $checkoutUrl): self
-    {
+    public static function async(
+        string $providerPaymentId,
+        string $checkoutUrl
+    ): self {
         return new self(
             success: true,
             checkoutUrl: $checkoutUrl,
+            providerPaymentId: $providerPaymentId,
             async: true
         );
     }

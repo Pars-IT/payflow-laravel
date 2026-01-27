@@ -4,15 +4,16 @@ namespace App\Http\Controllers;
 
 use App\Enums\PaymentStatus;
 use App\Jobs\ProcessPaymentJob;
-use App\Models\Payment;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Services\RedisPaymentService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 
 class PaymentController extends Controller
 {
-    public function store(Request $request)
-    {
+    public function store(
+        Request $request,
+        PaymentRepositoryInterface $paymentRepository
+    ) {
         $request->validate([
             'user_id' => 'required|integer',
             'amount' => 'required|integer|min:1',
@@ -20,7 +21,7 @@ class PaymentController extends Controller
         ]);
 
         // DB-level idempotency (safe fallback)
-        $existing = Payment::where('idempotency_key', $request->idempotency_key)->first();
+        $existing = $paymentRepository->findByIdempotencyKey($request->idempotency_key);
         if ($existing) {
             return response()->json([
                 'id' => $existing->id,
@@ -28,13 +29,10 @@ class PaymentController extends Controller
             ], 200);
         }
 
-        $payment = Payment::create([
-            'id' => (string) Str::uuid(),
+        $payment = $paymentRepository->createPending([
             'user_id' => $request->user_id,
             'gateway' => $request->gateway ?? 'ideal',
             'amount' => $request->amount,
-            'currency' => 'EUR',
-            'status' => PaymentStatus::Pending->value,
             'idempotency_key' => $request->idempotency_key,
         ]);
 
@@ -42,18 +40,19 @@ class PaymentController extends Controller
 
         return response()->json([
             'id' => $payment->id,
-            'status' => PaymentStatus::Pending->value,
+            'status' => $payment->status,
         ], 201);
     }
 
     public function show(
         string $id,
-        RedisPaymentService $redis
+        RedisPaymentService $redisPaymentService,
+        PaymentRepositoryInterface $paymentRepository
     ) {
         /**
          * Redis hot path
          */
-        if ($state = $redis->getPaymentState($id)) {
+        if ($state = $redisPaymentService->getPaymentState($id)) {
             return response()->json(array_merge(
                 ['cached' => true, 'id' => $id],
                 $state
@@ -63,7 +62,7 @@ class PaymentController extends Controller
         /**
          * DB source of truth
          */
-        $payment = Payment::findOrFail($id);
+        $payment = $paymentRepository->findById($id);
 
         $response = [
             'id' => $payment->id,
@@ -79,9 +78,7 @@ class PaymentController extends Controller
             $payment->created_at->lt(now()->subMinutes(2))
         ) {
             // auto-heal
-            $payment->status = PaymentStatus::Failed->value;
-            $payment->failure_reason = 'processing_timeout';
-            $payment->save();
+            $paymentRepository->markTimedOut($payment);
         }
 
         /**
@@ -91,7 +88,7 @@ class PaymentController extends Controller
             PaymentStatus::from($payment->status)->isFinal()
             || $payment->provider_checkout_url !== null
         ) {
-            $redis->setPaymentState($payment->id, [
+            $redisPaymentService->setPaymentState($payment->id, [
                 'status' => $payment->status,
                 'failure_reason' => $payment->failure_reason,
                 'checkout_url' => $payment->provider_checkout_url,

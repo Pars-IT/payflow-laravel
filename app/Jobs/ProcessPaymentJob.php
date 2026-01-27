@@ -7,6 +7,7 @@ use App\Exceptions\Payments\PspException;
 use App\Exceptions\Payments\WalletNotFoundException;
 use App\Models\Payment;
 use App\Payments\GatewayResolver;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Services\PaymentFinalizer;
 use App\Services\RedisPaymentService;
 use App\Services\WalletService;
@@ -27,15 +28,17 @@ class ProcessPaymentJob implements ShouldQueue
     ) {}
 
     public function handle(
-        RedisPaymentService $redis,
+        RedisPaymentService $redisPaymentService,
         GatewayResolver $resolver,
         WalletService $wallets,
-        PaymentFinalizer $finalizer
+        PaymentFinalizer $finalizer,
+        PaymentRepositoryInterface $paymentRepository
     ): void {
-        $redis->withPaymentLock($this->paymentId, function () use (
+        $redisPaymentService->withPaymentLock($this->paymentId, function () use (
             $resolver,
             $wallets,
-            $finalizer
+            $finalizer,
+            $paymentRepository
         ) {
             $payment = Payment::find($this->paymentId);
 
@@ -57,6 +60,13 @@ class ProcessPaymentJob implements ShouldQueue
 
                 // async PSP (e.g. Mollie)
                 if ($result->async === true) {
+                    $paymentRepository->attachProviderData(
+                        paymentId: $payment->id,
+                        provider: $payment->gateway,
+                        providerPaymentId: $result->providerPaymentId,
+                        checkoutUrl: $result->checkoutUrl
+                    );
+
                     return;
                 }
 

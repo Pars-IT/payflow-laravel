@@ -8,6 +8,7 @@ use App\Models\Payment;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Payments\GatewayResolver;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use App\Services\PaymentFinalizer;
 use App\Services\RedisPaymentService;
 use App\Services\WalletService;
@@ -52,7 +53,8 @@ class ProcessPaymentJobTest extends TestCase
             $redis,
             app()->make(GatewayResolver::class),
             app()->make(WalletService::class),
-            app()->make(PaymentFinalizer::class)
+            app()->make(PaymentFinalizer::class),
+            app()->make(PaymentRepositoryInterface::class)
         );
 
         $payment->refresh();
@@ -89,9 +91,10 @@ class ProcessPaymentJobTest extends TestCase
         $job = new ProcessPaymentJob($payment->id);
         $job->handle(
             $redis,
-            app()->make(\App\Payments\GatewayResolver::class),
+            app()->make(GatewayResolver::class),
             app()->make(WalletService::class),
-            app()->make(PaymentFinalizer::class)
+            app()->make(PaymentFinalizer::class),
+            app()->make(PaymentRepositoryInterface::class)
         );
 
         $payment->refresh();
@@ -118,9 +121,10 @@ class ProcessPaymentJobTest extends TestCase
         $job = new ProcessPaymentJob($payment->id);
         $job->handle(
             $redis,
-            app()->make(\App\Payments\GatewayResolver::class),
+            app()->make(GatewayResolver::class),
             app()->make(WalletService::class),
-            app()->make(PaymentFinalizer::class)
+            app()->make(PaymentFinalizer::class),
+            app()->make(PaymentRepositoryInterface::class)
         );
 
         // nothing changed

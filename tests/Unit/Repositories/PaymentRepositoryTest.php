@@ -5,7 +5,7 @@ namespace Tests\Unit\Repositories;
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use App\Models\User;
-use App\Repositories\PaymentRepository;
+use App\Repositories\Contracts\PaymentRepositoryInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,12 +13,12 @@ class PaymentRepositoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private PaymentRepository $repo;
+    private PaymentRepositoryInterface $repo;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->repo = app(PaymentRepository::class);
+        $this->repo = app(PaymentRepositoryInterface::class);
     }
 
     public function test_marks_payment_as_success(): void
@@ -30,10 +30,11 @@ class PaymentRepositoryTest extends TestCase
             'status' => PaymentStatus::Pending->value,
         ]);
 
-        $this->repo->markSuccess($payment);
+        $result = $this->repo->markSuccess($payment->id);
 
         $payment->refresh();
 
+        $this->assertTrue($result);
         $this->assertEquals(PaymentStatus::Success->value, $payment->status);
     }
 
@@ -46,10 +47,11 @@ class PaymentRepositoryTest extends TestCase
             'status' => PaymentStatus::Pending->value,
         ]);
 
-        $this->repo->markFailed($payment, 'psp_error');
+        $result = $this->repo->markFailed($payment->id, 'psp_error');
 
         $payment->refresh();
 
+        $this->assertTrue($result);
         $this->assertEquals(PaymentStatus::Failed->value, $payment->status);
         $this->assertEquals('psp_error', $payment->failure_reason);
     }
@@ -63,7 +65,8 @@ class PaymentRepositoryTest extends TestCase
             'status' => PaymentStatus::Success->value,
         ]);
 
-        $this->repo->markFailed($payment, 'should_not_happen');
+        $result = $this->repo->markFailed($payment->id, 'should_not_happen');
+        $this->assertFalse($result);
 
         $payment->refresh();
 
@@ -81,7 +84,8 @@ class PaymentRepositoryTest extends TestCase
             'failure_reason' => 'initial_error',
         ]);
 
-        $this->repo->markSuccess($payment);
+        $result = $this->repo->markSuccess($payment->id);
+        $this->assertFalse($result);
 
         $payment->refresh();
 

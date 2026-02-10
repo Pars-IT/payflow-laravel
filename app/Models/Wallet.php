@@ -14,4 +14,18 @@ class Wallet extends Model
         'balance',
         'currency',
     ];
+
+    protected $casts = [
+        'balance' => 'int',
+    ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    public function transactions()
+    {
+        return $this->hasMany(Transaction::class);
+    }
 }

@@ -29,6 +29,10 @@ class Payment extends Model
         'failure_reason',
     ];
 
+    protected $casts = [
+        'amount' => 'int',
+    ];
+
     public function user()
     {
         return $this->belongsTo(User::class);

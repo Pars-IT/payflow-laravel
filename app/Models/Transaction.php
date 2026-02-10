@@ -13,6 +13,25 @@ class Transaction extends Model
         'wallet_id',
         'payment_id',
         'amount',
-        'type',
+        'type', // credit | debit
     ];
+
+    protected $casts = [
+        'amount' => 'int',
+    ];
+
+    public function wallet()
+    {
+        return $this->belongsTo(Wallet::class);
+    }
+
+    public function isCredit(): bool
+    {
+        return $this->type === 'credit';
+    }
+
+    public function isDebit(): bool
+    {
+        return $this->type === 'debit';
+    }
 }

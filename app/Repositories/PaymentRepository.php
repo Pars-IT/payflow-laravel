@@ -5,7 +5,6 @@ namespace App\Repositories;
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use App\Repositories\Contracts\PaymentRepositoryInterface;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class PaymentRepository implements PaymentRepositoryInterface
@@ -32,12 +31,18 @@ class PaymentRepository implements PaymentRepositoryInterface
     public function markTimedOut(
         Payment $payment,
     ): bool {
-        return Payment::where('id', $payment->id)
+        $updated = Payment::where('id', $payment->id)
             ->where('status', PaymentStatus::Pending->value)
             ->update([
                 'status' => PaymentStatus::Failed->value,
                 'failure_reason' => 'processing_timeout',
             ]) === 1;
+
+        if ($updated) {
+            $payment->refresh();
+        }
+
+        return $updated;
     }
 
     public function createPending(array $data): Payment
@@ -72,42 +77,20 @@ class PaymentRepository implements PaymentRepositoryInterface
      */
     public function markSuccess(string $paymentId): bool
     {
-        return DB::transaction(function () use ($paymentId) {
-            $payment = Payment::where('id', $paymentId)
-                ->where('status', PaymentStatus::Pending->value)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $payment) {
-                return false;
-            }
-
-            $payment->update([
+        return Payment::where('id', $paymentId)
+            ->where('status', PaymentStatus::Pending->value)
+            ->update([
                 'status' => PaymentStatus::Success->value,
-            ]);
-
-            return true;
-        });
+            ]) === 1;
     }
 
     public function markFailed(string $paymentId, string $reason): bool
     {
-        return DB::transaction(function () use ($paymentId, $reason) {
-            $payment = Payment::where('id', $paymentId)
-                ->where('status', PaymentStatus::Pending->value)
-                ->lockForUpdate()
-                ->first();
-
-            if (! $payment) {
-                return false;
-            }
-
-            $payment->update([
+        return Payment::where('id', $paymentId)
+            ->where('status', PaymentStatus::Pending->value)
+            ->update([
                 'status' => PaymentStatus::Failed->value,
                 'failure_reason' => $reason,
-            ]);
-
-            return true;
-        });
+            ]) === 1;
     }
 }

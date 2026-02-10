@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 class WalletService
 {
     /**
-     * Process money (ledger)
+     * Credit wallet from a successful payment
      */
     public function creditFromPayment(Payment $payment): void
     {
@@ -24,15 +24,15 @@ class WalletService
                 throw new WalletNotFoundException;
             }
 
-            $wallet->balance += $payment->amount;
-            $wallet->save();
-
             Transaction::create([
                 'wallet_id' => $wallet->id,
                 'payment_id' => $payment->id, // unique
                 'amount' => $payment->amount,
                 'type' => 'credit',
             ]);
+
+            $wallet->balance += $payment->amount;
+            $wallet->save();
         });
     }
 }

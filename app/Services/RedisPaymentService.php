@@ -2,15 +2,19 @@
 
 namespace App\Services;
 
+use Illuminate\Redis\Connections\Connection;
 use Illuminate\Support\Facades\Log;
-use Redis;
+use Illuminate\Support\Facades\Redis as RedisFacade;
 use Throwable;
 
 class RedisPaymentService
 {
-    public function __construct(
-        private readonly Redis $redis
-    ) {}
+    private Connection $redis;
+
+    public function __construct(?Connection $redis = null)
+    {
+        $this->redis = $redis ?? RedisFacade::connection();
+    }
 
     /* ---------------- Payment state (UI polling) ---------------- */
 
@@ -67,7 +71,13 @@ class RedisPaymentService
         $token = bin2hex(random_bytes(16));
 
         try {
-            $hasLock = $this->redis->set($lockKey, $token, ['nx', 'ex' => $ttlSeconds]);
+            $hasLock = $this->redis->set(
+                $lockKey,
+                $token,
+                'EX',
+                $ttlSeconds,
+                'NX'
+            );
         } catch (Throwable $e) {
             Log::warning('Redis lock failed, running without lock', [
                 'payment_id' => $paymentId,
@@ -79,7 +89,7 @@ class RedisPaymentService
             return;
         }
 
-        if ($hasLock === false) {
+        if ($hasLock !== true) {
             return; // another worker owns the lock
         }
 
@@ -100,7 +110,12 @@ return 0
 LUA;
 
         try {
-            $this->redis->eval($lua, [$key, $token], 1);
+            $this->redis->eval(
+                $lua,
+                1,
+                $key,
+                $token
+            );
         } catch (Throwable $e) {
             Log::warning('Redis releaseLock failed', [
                 'lock_key' => $key,

@@ -3,16 +3,16 @@
 namespace Tests\Unit\Services;
 
 use App\Services\RedisPaymentService;
+use Illuminate\Redis\Connections\Connection;
 use Illuminate\Support\Facades\Log;
 use Mockery;
-use Redis;
 use Tests\TestCase;
 
 class RedisPaymentServiceTest extends TestCase
 {
     public function test_payment_state_is_cached_and_retrieved(): void
     {
-        $redis = Mockery::mock(Redis::class);
+        $redis = Mockery::mock(Connection::class);
 
         $state = [
             'status' => 'pending',
@@ -44,7 +44,7 @@ class RedisPaymentServiceTest extends TestCase
     {
         Log::spy();
 
-        $redis = Mockery::mock(Redis::class);
+        $redis = Mockery::mock(Connection::class);
 
         $redis->shouldReceive('get')
             ->once()
@@ -59,9 +59,9 @@ class RedisPaymentServiceTest extends TestCase
 
     public function test_with_payment_lock_does_not_execute_when_lock_not_acquired(): void
     {
-        $redis = Mockery::mock(\Redis::class);
+        $redis = Mockery::mock(Connection::class);
 
-        $redis->shouldReceive('set')->andReturn(false);
+        $redis->shouldReceive('set')->once()->andReturn(false);
         $redis->shouldReceive('eval')->never();
 
         $service = new RedisPaymentService($redis);

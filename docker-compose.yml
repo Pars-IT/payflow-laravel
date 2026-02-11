@@ -1,0 +1,74 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/var/www
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+
+  test-app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    volumes:
+      - .:/var/www
+    env_file:
+      - .env.testing
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    command: php artisan queue:work rabbitmq --sleep=1 --tries=3 --timeout=90 --backoff=5
+    volumes:
+      - .:/var/www
+    env_file:
+      - .env
+    depends_on:
+      - mysql
+      - redis
+      - rabbitmq
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf
+    depends_on:
+      - app
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: payment
+      MYSQL_USER: laravel
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:7
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+
+volumes:
+  mysql_data:

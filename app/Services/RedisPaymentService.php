@@ -2,20 +2,12 @@
 
 namespace App\Services;
 
-use Illuminate\Redis\Connections\Connection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redis as RedisFacade;
 use Throwable;
 
 class RedisPaymentService
 {
-    private Connection $redis;
-
-    public function __construct(?Connection $redis = null)
-    {
-        $this->redis = $redis ?? RedisFacade::connection();
-    }
-
     /* ---------------- Payment state (UI polling) ---------------- */
 
     public function setPaymentState(
@@ -24,13 +16,9 @@ class RedisPaymentService
         int $ttlSeconds = 300
     ): void {
         try {
-            $this->redis->setex(
-                $this->stateKey($paymentId),
-                $ttlSeconds,
-                json_encode($state, JSON_THROW_ON_ERROR)
-            );
+            Cache::put($this->stateKey($paymentId), $state, $ttlSeconds);
         } catch (Throwable $e) {
-            Log::warning('Redis setPaymentState failed', [
+            Log::warning('Cache setPaymentState failed', [
                 'payment_id' => $paymentId,
                 'exception' => $e,
             ]);
@@ -40,13 +28,9 @@ class RedisPaymentService
     public function getPaymentState(string $paymentId): ?array
     {
         try {
-            $value = $this->redis->get($this->stateKey($paymentId));
-
-            return $value
-                ? json_decode($value, true, 512, JSON_THROW_ON_ERROR)
-                : null;
+            return Cache::get($this->stateKey($paymentId));
         } catch (Throwable $e) {
-            Log::warning('Redis getPaymentState failed', [
+            Log::warning('Cache getPaymentState failed', [
                 'payment_id' => $paymentId,
                 'exception' => $e,
             ]);
@@ -67,61 +51,18 @@ class RedisPaymentService
         callable $callback,
         int $ttlSeconds = 30
     ): void {
-        $lockKey = $this->lockKey($paymentId);
-        $token = bin2hex(random_bytes(16));
-
         try {
-            $hasLock = $this->redis->set(
-                $lockKey,
-                $token,
-                'EX',
-                $ttlSeconds,
-                'NX'
-            );
+            Cache::lock($this->lockKey($paymentId), $ttlSeconds)
+                ->block(0, function () use ($callback) {
+                    $callback();
+                });
         } catch (Throwable $e) {
-            Log::warning('Redis lock failed, running without lock', [
+            Log::warning('Cache lock failed, running without lock', [
                 'payment_id' => $paymentId,
                 'exception' => $e,
             ]);
 
             $callback();
-
-            return;
-        }
-
-        if ($hasLock !== true) {
-            return; // another worker owns the lock
-        }
-
-        try {
-            $callback();
-        } finally {
-            $this->releaseLock($lockKey, $token);
-        }
-    }
-
-    private function releaseLock(string $key, string $token): void
-    {
-        $lua = <<<'LUA'
-if redis.call("GET", KEYS[1]) == ARGV[1] then
-    return redis.call("DEL", KEYS[1])
-end
-return 0
-LUA;
-
-        try {
-            $this->redis->eval(
-                $lua,
-                1,
-                $key,
-                $token
-            );
-        } catch (Throwable $e) {
-            Log::warning('Redis releaseLock failed', [
-                'lock_key' => $key,
-                'token' => $token,
-                'exception' => $e,
-            ]);
         }
     }
 

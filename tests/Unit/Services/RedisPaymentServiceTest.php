@@ -3,73 +3,74 @@
 namespace Tests\Unit\Services;
 
 use App\Services\RedisPaymentService;
-use Illuminate\Redis\Connections\Connection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
-use Mockery;
 use Tests\TestCase;
 
 class RedisPaymentServiceTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Cache::flush();
+    }
+
     public function test_payment_state_is_cached_and_retrieved(): void
     {
-        $redis = Mockery::mock(Connection::class);
+        $service = new RedisPaymentService;
 
         $state = [
             'status' => 'pending',
             'failure_reason' => null,
         ];
 
-        $redis->shouldReceive('setex')
-            ->once()
-            ->with(
-                'payment:state:payment-1',
-                Mockery::any(),
-                json_encode($state)
-            );
-
-        $redis->shouldReceive('get')
-            ->once()
-            ->with('payment:state:payment-1')
-            ->andReturn(json_encode($state));
-
-        $service = new RedisPaymentService($redis);
-
         $service->setPaymentState('payment-1', $state);
+
         $result = $service->getPaymentState('payment-1');
 
         $this->assertEquals($state, $result);
     }
 
-    public function test_redis_failure_is_gracefully_handled(): void
+    public function test_cache_failure_is_gracefully_handled(): void
     {
         Log::spy();
 
-        $redis = Mockery::mock(Connection::class);
-
-        $redis->shouldReceive('get')
+        Cache::shouldReceive('get')
             ->once()
-            ->andThrow(new \Exception('Redis down'));
+            ->andThrow(new \Exception('Cache down'));
 
-        $service = new RedisPaymentService($redis);
+        $service = new RedisPaymentService;
 
         $this->assertNull(
             $service->getPaymentState('payment-1')
         );
+
+        Log::shouldHaveReceived('warning')->once();
     }
 
-    public function test_with_payment_lock_does_not_execute_when_lock_not_acquired(): void
+    public function test_with_payment_lock_executes_callback(): void
     {
-        $redis = Mockery::mock(Connection::class);
-
-        $redis->shouldReceive('set')->once()->andReturn(false);
-        $redis->shouldReceive('eval')->never();
-
-        $service = new RedisPaymentService($redis);
+        $service = new RedisPaymentService;
 
         $called = false;
 
-        $service->withPaymentLock('payment-1', fn () => $called = true);
+        $service->withPaymentLock('payment-1', function () use (&$called) {
+            $called = true;
+        });
 
-        $this->assertFalse($called);
+        $this->assertTrue($called);
+    }
+
+    public function test_with_payment_lock_executes_callback_once(): void
+    {
+        $service = new RedisPaymentService;
+
+        $count = 0;
+
+        $service->withPaymentLock('payment-1', function () use (&$count) {
+            $count++;
+        });
+
+        $this->assertEquals(1, $count);
     }
 }

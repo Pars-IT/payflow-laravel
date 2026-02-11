@@ -9,7 +9,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
-    <link href="{{ asset('css/payment.css') }}" rel="stylesheet">
+    <link href="{{ asset('css/payment.css') }}?v={{ filemtime(public_path('css/payment.css')) }}" rel="stylesheet">
 </head>
 <body>
 
@@ -23,6 +23,10 @@
         </div>
 
         <h5 class="text-center mb-4">Test Payment with AWS</h5>
+
+        <h6 id="user-credit" class="text-center mb-3">
+            Your credit: ...
+        </h6>
 
         <form id="payment-form">
 
@@ -61,6 +65,6 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="{{ asset('js/payment.js') }}"></script>
+<script src="{{ asset('js/payment.js') }}?v={{ filemtime(public_path('js/payment.js')) }}"></script>
 </body>
 </html>

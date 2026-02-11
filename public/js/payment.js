@@ -104,5 +104,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 1500);
     }
 
+    /* ---------- LOAD USER CREDIT ---------- */
+
+    const creditEl = document.getElementById('user-credit');
+
+    if (creditEl) {
+        fetch('/api/wallets/1/credit')
+            .then(res => res.json())
+            .then(data => {
+                const euro = (data.balance / 100).toFixed(2);
+                creditEl.innerText = 'Your credit: €' + euro;
+            })
+            .catch(() => {
+                creditEl.innerText = 'Error retrieving credit';
+            });
+    }
 
 });

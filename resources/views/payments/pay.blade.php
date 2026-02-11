@@ -22,7 +22,7 @@
             </button>
         </div>
 
-        <h5 class="text-center mb-4">Test Payment with AWS</h5>
+        <h5 class="text-center mb-4">Test Payment with AWS v2.0</h5>
 
         <h6 id="user-credit" class="text-center mb-3">
             Your credit: ...

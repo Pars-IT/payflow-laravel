@@ -10,4 +10,4 @@ Route::get('/payments/{id}', [PaymentController::class, 'show']);
 Route::post('/webhooks/mollie', [MollieWebhookController::class, 'handle'])
     ->name('webhooks.mollie');
 
-Route::get('/health', fn() => response()->json(['ok' => true]));
+Route::get('/health', fn () => response()->json(['ok' => true]));

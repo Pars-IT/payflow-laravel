@@ -22,12 +22,12 @@
             </button>
         </div>
 
-        <h5 class="text-center mb-4">Test Payment</h5>
+        <h5 class="text-center mb-4">Test Payment with AWS</h5>
 
         <form id="payment-form">
 
             <div class="mb-3">
-                <label class="form-label">Gateway:</label>
+                <label class="form-label">Gateway</label>
                 <select id="gateway" class="form-select">
                     <option value="ideal">iDEAL</option>
                     <option value="mollie">Mollie</option>
@@ -37,7 +37,7 @@
             </div>
 
             <div class="mb-3">
-                <label class="form-label">Amount (cents):</label>
+                <label class="form-label">Amount (cents)</label>
                 <input
                     type="number"
                     id="amount"

@@ -46,7 +46,7 @@
                     type="number"
                     id="amount"
                     class="form-control"
-                    value="1500"
+                    value="100"
                     min="1"
                     required
                 >

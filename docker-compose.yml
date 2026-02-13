@@ -12,19 +12,6 @@ services:
       - redis
       - rabbitmq
 
-  test-app:
-    build:
-      context: .
-      dockerfile: docker/php/Dockerfile
-    volumes:
-      - .:/var/www
-    env_file:
-      - .env.testing
-    depends_on:
-      - mysql
-      - redis
-      - rabbitmq
-
   worker:
     build:
       context: .

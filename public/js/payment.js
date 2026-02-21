@@ -1,36 +1,20 @@
+/* ---------- THEME ---------- */
+const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function applySystemTheme(isDark) {
+    document.body.classList.toggle('dark', isDark);
+}
+
+// Apply theme immediately
+applySystemTheme(mediaQuery.matches);
+
+// Listen for system theme changes
+mediaQuery.addEventListener('change', (event) => {
+    applySystemTheme(event.matches);
+});
+
 document.addEventListener('DOMContentLoaded', () => {
-
-    const body = document.body;
-    const toggleBtn = document.getElementById('toggle-theme');
-
-    /* ---------- THEME ---------- */
-
-    const THEME_KEY = 'theme';
-    const savedTheme = localStorage.getItem(THEME_KEY);
-
-    if (savedTheme === 'dark') {
-        body.classList.add('dark');
-    }
-
-    if (toggleBtn) {
-        toggleBtn.innerText = body.classList.contains('dark')
-            ? '☀️ Light mode'
-            : '🌙 Dark mode';
-
-        toggleBtn.onclick = () => {
-            body.classList.toggle('dark');
-            localStorage.setItem(
-                THEME_KEY,
-                body.classList.contains('dark') ? 'dark' : 'light'
-            );
-            toggleBtn.innerText = body.classList.contains('dark')
-                ? '☀️ Light mode'
-                : '🌙 Dark mode';
-        };
-    }
-
     /* ---------- CREATE PAYMENT ---------- */
-
     const form = document.getElementById('payment-form');
 
     if (form) {
@@ -105,7 +89,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /* ---------- LOAD USER CREDIT ---------- */
-
     const creditEl = document.getElementById('user-credit');
 
     if (creditEl) {

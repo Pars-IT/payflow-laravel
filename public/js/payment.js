@@ -26,14 +26,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             button.disabled = true;
             spinner.style.display = 'block';
-
+            let cents = Math.round(parseFloat(document.getElementById('amount').value) * 100);
             const res = await fetch('/api/payments', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     user_id: 1,
                     gateway: document.getElementById('gateway').value,
-                    amount: document.getElementById('amount').value,
+                    amount: cents,
                     idempotency_key: 'web-' + Date.now()
                 })
             });

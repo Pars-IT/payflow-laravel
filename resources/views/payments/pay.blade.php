@@ -18,11 +18,9 @@
     <div class="container">
         <div class="card mx-auto mt-5 p-4 shadow-sm" style="max-width:420px">
 
+            <h5 class="text-center mb-4 text-primary">Test Payment with AWS v2.1</h5>
 
-
-            <h5 class="text-center mb-4">Test Payment with AWS v2.0</h5>
-
-            <h6 id="user-credit" class="text-center mb-3">
+            <h6 id="user-credit" class="text-center mb-3 text-info">
                 Your credit: ...
             </h6>
 
@@ -39,8 +37,12 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Amount (cents)</label>
-                    <input type="number" id="amount" class="form-control" value="100" min="1" required>
+                    <label class="form-label">Amount</label>
+                    <div class="input-group">
+                        <span class="input-group-text">€</span>
+                        <input type="number" id="amount" class="form-control" value="1.00" min="0.01"
+                            step="0.01" required>
+                    </div>
                 </div>
 
                 <button id="pay-btn" class="btn btn-primary w-100">

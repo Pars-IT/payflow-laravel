@@ -6,8 +6,6 @@ services:
     env_file:
       - .env
     restart: always
-    depends_on:
-      - mysql
 
   worker:
     build:
@@ -17,8 +15,6 @@ services:
     env_file:
       - .env
     restart: always
-    depends_on:
-      - mysql
 
   nginx:
     image: nginx:alpine
@@ -30,18 +26,3 @@ services:
     depends_on:
       - app
     restart: always
-
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_DATABASE: payment
-      MYSQL_USER: laravel
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: root
-    ports:
-      - "3307:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-
-volumes:
-  mysql_data:

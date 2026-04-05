@@ -82,4 +82,32 @@ class PaymentController extends Controller
 
         return response()->json($response);
     }
+
+    public function gateways()
+    {
+        $gateways = [
+            [
+                'key' => 'ideal',
+                'name' => 'iDEAL',
+                'default' => true,
+            ],
+            [
+                'key' => 'mollie',
+                'name' => 'Mollie',
+                'default' => false,
+            ],
+            [
+                'key' => 'ing',
+                'name' => 'ING',
+                'default' => false,
+            ],
+            [
+                'key' => 'abn-amro',
+                'name' => 'ABN AMRO',
+                'default' => false,
+            ],
+        ];
+
+        return response()->json($gateways);
+    }
 }

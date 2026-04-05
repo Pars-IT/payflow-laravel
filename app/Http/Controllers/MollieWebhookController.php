@@ -20,7 +20,7 @@ class MollieWebhookController extends Controller
         MollieApiClient $mollieClient,
         PaymentRepositoryInterface $paymentRepository
     ) {
-        Log::info('Mollie webhook called', ['payload' => $request->all()]);
+        Log::info('Mollie webhook called', ['id' => $request->id]);
 
         if (! $request->has('id')) {
             return response()->json(['error' => 'invalid_webhook'], 400);
@@ -28,13 +28,38 @@ class MollieWebhookController extends Controller
 
         $mollieClient->setApiKey(config('services.mollie.key'));
 
-        // Mollie sends the payment id as "id"
-        $molliePayment = $mollieClient->payments->get($request->id);
+        try {
+            // Mollie sends the payment id as "id"
+            $molliePayment = $mollieClient->payments->get($request->id);
+        } catch (\Exception $e) {
+            Log::error('Mollie API error', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['ok' => true]);
+        }
 
         $payment = $paymentRepository->findByProviderPaymentId('mollie', $molliePayment->id);
 
+        if (! $payment) {
+            Log::warning('Payment not found for webhook', [
+                'provider_id' => $molliePayment->id,
+            ]);
+
+            return response()->json(['ok' => true]);
+        }
+
         // Idempotency: do not process finalized payments again
         if (PaymentStatus::from($payment->status)->isFinal()) {
+            return response()->json(['ok' => true]);
+        }
+
+        if ((int) round($molliePayment->amount->value * 100) !== $payment->amount) {
+            Log::error('Amount mismatch', [
+                'mollie' => $molliePayment->amount->value,
+                'local' => $payment->amount,
+            ]);
+
             return response()->json(['ok' => true]);
         }
 

@@ -6,7 +6,7 @@ use App\Models\Wallet;
 
 class WalletController extends Controller
 {
-    public function showCredit($userId)
+    public function show($userId)
     {
         $wallet = Wallet::where('user_id', $userId)->first();
 

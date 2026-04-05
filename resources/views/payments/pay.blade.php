@@ -28,12 +28,7 @@
 
                 <div class="mb-3">
                     <label class="form-label">Gateway</label>
-                    <select id="gateway" class="form-select">
-                        <option value="ideal">iDEAL</option>
-                        <option value="mollie">Mollie</option>
-                        <option value="ing">ING</option>
-                        <option value="abn-amro">ABN AMRO</option>
-                    </select>
+                    <select id="gateway" class="form-select"></select>
                 </div>
 
                 <div class="mb-3">

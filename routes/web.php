@@ -9,7 +9,7 @@ Route::get('/', function () {
 
 Route::get('/pay', function () {
     return view('payments.pay');
-});
+})->middleware('throttle:20,1');
 
 Route::get('/payments/{payment}', function (Payment $payment) {
     return view('payments.status', [

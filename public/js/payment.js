@@ -92,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const creditEl = document.getElementById('user-credit');
 
     if (creditEl) {
-        fetch('/api/wallets/1/credit')
+        fetch('/api/wallets/1')
             .then(res => res.json())
             .then(data => {
                 const euro = (data.balance / 100).toFixed(2);
@@ -103,4 +103,29 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    /* ---------- LOAD GATEWAYS ---------- */
+    const gatewaySelect = document.getElementById('gateway');
+
+    if (gatewaySelect) {
+        fetch('/api/gateways')
+            .then(res => res.json())
+            .then(gateways => {
+                gatewaySelect.innerHTML = '';
+
+                gateways.forEach(g => {
+                    const option = document.createElement('option');
+                    option.value = g.key;
+                    option.textContent = g.name;
+
+                    if (g.default) {
+                        option.selected = true;
+                    }
+
+                    gatewaySelect.appendChild(option);
+                });
+            })
+            .catch(() => {
+                gatewaySelect.innerHTML = '<option>Error loading gateways</option>';
+            });
+    }
 });

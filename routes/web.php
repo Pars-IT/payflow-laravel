@@ -4,10 +4,6 @@ use App\Models\Payment;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
-});
-
-Route::get('/pay', function () {
     return view('payments.pay');
 })->middleware('throttle:20,1');
 

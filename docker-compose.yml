@@ -37,7 +37,7 @@ services:
       - app
 
   mysql:
-    image: mysql:8.0
+    image: mariadb:11.4
     environment:
       MYSQL_DATABASE: payment
       MYSQL_USER: laravel
@@ -59,3 +59,4 @@ services:
 
 volumes:
   mysql_data:
+    name: mysql_data

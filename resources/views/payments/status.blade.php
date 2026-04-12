@@ -22,7 +22,7 @@
             </p>
 
             <div id="pay-new-link" class="text-center mt-3" style="display:none;">
-                <a href="/pay" class="btn btn-sm btn-outline-primary">
+                <a href="/" class="btn btn-sm btn-outline-primary">
                     New Payment
                 </a>
             </div>

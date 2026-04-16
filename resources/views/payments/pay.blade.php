@@ -18,7 +18,7 @@
     <div class="container">
         <div class="card mx-auto mt-5 p-4 shadow-sm" style="max-width:420px">
 
-            <h5 class="text-center mb-4 text-primary">Test Payment with AWS v2.1</h5>
+            <h5 class="text-center mb-4 text-primary">Laravel Payflow v1.0</h5>
 
             <h6 id="user-credit" class="text-center mb-3 text-info">
                 Your credit: ...
